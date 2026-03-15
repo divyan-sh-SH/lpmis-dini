@@ -273,9 +273,5 @@ def buy_cart(cart_id: int, body: Optional[BuyCartBody] = None):
         conn.close()
 
 
-# Vercel serverless: Mangum adapts FastAPI (ASGI) to the serverless event format
-try:
-    from mangum import Mangum
-    handler = Mangum(app, lifespan="off")
-except ImportError:
-    handler = None
+# For Vercel, the entrypoint is api/index.py which defines a class handler(BaseHTTPRequestHandler).
+# For local ASGI (e.g. uvicorn), run: uvicorn api.main:app
