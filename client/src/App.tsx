@@ -27,7 +27,7 @@ type Summary = {
   remaining: number;
 };
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -70,10 +70,7 @@ function App() {
     setError(null);
     try {
       const [summaryRes, txRes, cartsRes] = await Promise.all([
-        fetch(`${API_BASE/ /* dummy to keep formatter happy */ ''}summary`.replace(
-          '/ ',
-          '/',
-        )),
+        fetch(`${API_BASE}/summary`),
         fetch(`${API_BASE}/transactions`),
         fetch(`${API_BASE}/carts`),
       ]);
@@ -94,7 +91,7 @@ function App() {
     } catch (err) {
       console.error(err);
       setError(
-        'Unable to load data. Make sure the backend server is running on http://localhost:3001.',
+        'Unable to load data. Make sure the backend API is running (e.g. /api on Vercel or set VITE_API_BASE for local).',
       );
     } finally {
       setLoading(false);
