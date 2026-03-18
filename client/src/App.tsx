@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
+import API_BASE from './apiConfig';
 
 type TransactionType = 'income' | 'expense';
 
@@ -26,8 +27,6 @@ type Summary = {
   expense: number;
   remaining: number;
 };
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -91,7 +90,7 @@ function App() {
     } catch (err) {
       console.error(err);
       setError(
-        'Unable to load data. Make sure the backend API is running (e.g. /api on Vercel or set VITE_API_BASE for local).',
+        'Unable to load data. Make sure the backend API is running.',
       );
     } finally {
       setLoading(false);
