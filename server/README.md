@@ -27,6 +27,6 @@ CREATE TABLE IF NOT EXISTS carts (
 ## Local run
 
 ```bash
-pip install -r api/requirements.txt
-uvicorn api.index:app --reload --host 0.0.0.0 --port 8000
+pip install .
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
