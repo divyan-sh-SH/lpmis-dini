@@ -1,15 +1,31 @@
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from typing import Generator
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+DATABASE_URL = os.getenv("SUPABASE_URL")
 
-def get_conn():
-    if not SUPABASE_URL:
-        raise RuntimeError(
-            "Missing SUPABASE_URL (or user, password, host, port, dbname) in environment"
-        )
-    return psycopg2.connect(SUPABASE_URL, cursor_factory=RealDictCursor)
+if not DATABASE_URL:
+    raise RuntimeError("Missing SUPABASE_URL in environment")
+
+# SQLAlchemy engine (PostgreSQL via psycopg2)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    future=True,
+)
+
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
