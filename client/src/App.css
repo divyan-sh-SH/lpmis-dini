@@ -1,12 +1,20 @@
 #root {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 3rem;
+  padding: 0 1.25rem 3rem;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .app-root {
   color: #0f172a;
+}
+
+.app-body {
+  padding-top: 1.25rem;
+}
+
+.page {
+  width: 100%;
 }
 
 .app-header {
@@ -24,6 +32,153 @@
 .subtitle {
   margin: 0;
   color: #64748b;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 0 -1.25rem 1.25rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.nav-brand {
+  text-decoration: none;
+  color: inherit;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.logo-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.logo-text {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.nav-link {
+  text-decoration: none;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  color: #334155;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-link:hover {
+  background: #f1f5f9;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.nav-link.active {
+  background: #2563eb1a;
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.nav-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  padding: 0.35rem;
+  min-width: 180px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  display: none;
+}
+
+.user-menu[open] .user-dropdown {
+  display: grid;
+}
+
+.user-item {
+  border: 0;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.user-item:hover {
+  background: #f8fafc;
+}
+
+.card-link-wrap {
+  text-decoration: none;
+  color: inherit;
+}
+
+.card-link-wrap:hover .summary-card {
+  transform: translateY(-2px);
+  transition: transform 0.18s ease;
+}
+
+.card-action {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #2563eb;
 }
 
 .cards-section {
