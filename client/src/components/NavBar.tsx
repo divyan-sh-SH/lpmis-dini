@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 
 export default function NavBar() {
   const { logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <nav className="sticky top-0 z-10 -mx-5 mb-5 bg-white/85 backdrop-blur-[10px] border-b border-slate-200/90 p-3.5 flex items-center justify-between gap-4">
@@ -21,24 +23,33 @@ export default function NavBar() {
       </div>
 
       <div className="flex justify-end">
-        <details className="relative">
-          <summary className="cursor-pointer list-none select-none font-bold text-slate-900">User</summary>
-          <div className="absolute right-0 top-[110%] bg-white border border-slate-200 rounded-xl p-1 min-w-[180px] shadow-lg hidden open:block">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            className="cursor-pointer list-none select-none font-bold text-slate-900"
+          >
+            User
+          </button>
+          <div
+            className={`absolute right-0 top-[110%] bg-white border border-slate-200 rounded-xl p-1 min-w-[180px] shadow-lg ${menuOpen ? 'block' : 'hidden'}`}
+          >
             <button type="button" className="w-full border-0 bg-transparent px-2.5 py-2.5 rounded-lg cursor-pointer text-left font-semibold text-slate-900 hover:bg-slate-50">
               Profile
             </button>
             <button type="button" className="w-full border-0 bg-transparent px-2.5 py-2.5 rounded-lg cursor-pointer text-left font-semibold text-slate-900 hover:bg-slate-50">
               Settings
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="w-full border-0 bg-transparent px-2.5 py-2.5 rounded-lg cursor-pointer text-left font-semibold text-slate-900 hover:bg-slate-50"
               onClick={logout}
             >
               Logout
             </button>
           </div>
-        </details>
+        </div>
       </div>
     </nav>
   );
