@@ -1,117 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchCarts, fetchSummary } from '../lib/moneyApi';
-import type { CartItem, Summary } from '../types/dashboard';
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 export default function HomePage() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [carts, setCarts] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const cartsTotal = useMemo(
-    () => carts.reduce((sum, c) => sum + c.cost, 0),
-    [carts],
-  );
-
-  async function fetchAll() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [summaryData, cartsData] = await Promise.all([
-        fetchSummary(),
-        fetchCarts(),
-      ]);
-      setSummary(summaryData);
-      setCarts(cartsData);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to load dashboard data';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>HomeDash</h1>
-        <p className="subtitle">
-          Track your daily expenses and maintain a personal cart of things to
-          buy later.
+    <div className="w-full">
+      <header className="flex flex-wrap items-baseline justify-between gap-3 mb-5">
+        <h1 className="text-4xl font-bold tracking-tight mb-2">HomeDash</h1>
+        <p className="text-slate-500">
+          Manage your personal finances and group expenses.
         </p>
       </header>
 
-      {loading && <div className="banner info">Loading data…</div>}
-      {error && <div className="banner error">{error}</div>}
-
       <main>
-        <section className="cards-section">
-          <Link to="/expense" className="card-link-wrap" aria-label="Go to Daily Expense">
-            <div className="summary-card">
-              <h2>Daily Expense</h2>
-              <p className="card-caption">Current month in rupees</p>
-              <div className="summary-values">
-                <div>
-                  <span className="summary-label">Income</span>
-                  <span className="summary-number">
-                    {summary ? formatCurrency(summary.income) : '—'}
-                  </span>
-                </div>
-                <div>
-                  <span className="summary-label">Expenses</span>
-                  <span className="summary-number negative">
-                    {summary ? formatCurrency(summary.expense) : '—'}
-                  </span>
-                </div>
-                <div>
-                  <span className="summary-label">Left this month</span>
-                  <span
-                    className={`summary-number ${
-                      summary && summary.remaining < 0 ? 'negative' : 'positive'
-                    }`}
-                  >
-                    {summary ? formatCurrency(summary.remaining) : '—'}
-                  </span>
-                </div>
-              </div>
-              <div className="card-action">Open →</div>
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+          <Link to="/personal" className="no-underline text-inherit hover:transform hover:-translate-y-0.5 transition-transform duration-200" aria-label="Go to Personal Dashboard">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-8 text-slate-200 shadow-2xl relative overflow-hidden">
+              <h2>Me</h2>
+              <p className="text-slate-400">Manage your personal transactions, stocks, and carts</p>
+              <div className="mt-3 inline-flex items-center gap-1 font-bold text-blue-400">Open →</div>
             </div>
           </Link>
 
-          <Link to="/carts" className="card-link-wrap" aria-label="Go to Carts">
-            <div className="summary-card">
-              <h2>Carts</h2>
-              <p className="card-caption">Personal wishlist / to-buy list</p>
-              <div className="summary-values">
-                <div>
-                  <span className="summary-label">Items</span>
-                  <span className="summary-number">{carts.length}</span>
-                </div>
-                <div>
-                  <span className="summary-label">Total planned</span>
-                  <span className="summary-number">
-                    {formatCurrency(cartsTotal)}
-                  </span>
-                </div>
-                <div>
-                  <span className="summary-label">Next step</span>
-                  <span className="summary-number positive">Buy later</span>
-                </div>
-              </div>
-              <div className="card-action">Open →</div>
+          <Link to="/groups" className="no-underline text-inherit hover:transform hover:-translate-y-0.5 transition-transform duration-200" aria-label="Go to Group Dashboard">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-8 text-slate-200 shadow-2xl relative overflow-hidden">
+              <h2>My Group</h2>
+              <p className="text-slate-400">View and manage group activities</p>
+              <div className="mt-3 inline-flex items-center gap-1 font-bold text-blue-400">Open →</div>
             </div>
           </Link>
         </section>
