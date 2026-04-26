@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uvicorn*)",
+      "Bash(pip install*)",
+      "Bash(pip list*)",
+      "Bash(python*)"
+    ]
+  }
+}

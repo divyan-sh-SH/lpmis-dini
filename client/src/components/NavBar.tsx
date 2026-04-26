@@ -15,10 +15,10 @@ export default function NavBar() {
 
       <div className="flex gap-1 items-center">
         <NavLink to="/personal" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-700 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-700 border-blue-300/35' : ''}`}>
-          Me
+          MyDash
         </NavLink>
         <NavLink to="/groups" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-700 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-700 border-blue-300/35' : ''}`}>
-          My Group
+          MyHomeDash
         </NavLink>
       </div>
 

@@ -19,7 +19,7 @@ import {
 } from '../lib/moneyApi';
 import type { Transaction, Stock, CartItem, TransactionCreate, StockCreate, CartItemCreate } from '../types/dashboard';
 
-const createEmptyTransaction = (user_id?: number): TransactionCreate => ({
+const emptyTransaction = (user_id?: number): TransactionCreate => ({
   date: new Date().toISOString().split('T')[0],
   amount: 0,
   description: '',
@@ -27,19 +27,23 @@ const createEmptyTransaction = (user_id?: number): TransactionCreate => ({
   user_id,
 });
 
-const createEmptyStock = (user_id?: number): StockCreate => ({
+const emptyStock = (user_id?: number): StockCreate => ({
   stock_item: '',
-  quantity: 0,
+  quantity: '',
   user_id,
 });
 
-const createEmptyCart = (user_id?: number): CartItemCreate => ({
-  item_name: '',
-  store: '',
+const emptyCart = (user_id?: number): CartItemCreate => ({
+  stock_item: '',
+  store_name: '',
   cost: 0,
-  note: '',
+  description: '',
   user_id,
 });
+
+const inputCls = 'mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500';
+const btnCancel = 'rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200';
+const btnPrimary = 'rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700';
 
 export default function PersonalPage() {
   const { user } = useAuth();
@@ -48,81 +52,65 @@ export default function PersonalPage() {
   const [carts, setCarts] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fetchedUserIdRef = useRef<number | null>(null);
+  const fetchedRef = useRef<number | null>(null);
 
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showTxModal, setShowTxModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
-  const [showEditTransactionModal, setShowEditTransactionModal] = useState(false);
+  const [showEditTxModal, setShowEditTxModal] = useState(false);
   const [showEditStockModal, setShowEditStockModal] = useState(false);
   const [showEditCartModal, setShowEditCartModal] = useState(false);
 
-  const [transactionForm, setTransactionForm] = useState<TransactionCreate>(createEmptyTransaction(user?.user_id));
-  const [stockForm, setStockForm] = useState<StockCreate>(createEmptyStock(user?.user_id));
-  const [cartForm, setCartForm] = useState<CartItemCreate>(createEmptyCart(user?.user_id));
+  const [txForm, setTxForm] = useState<TransactionCreate>(emptyTransaction(user?.user_id));
+  const [stockForm, setStockForm] = useState<StockCreate>(emptyStock(user?.user_id));
+  const [cartForm, setCartForm] = useState<CartItemCreate>(emptyCart(user?.user_id));
 
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [editingStock, setEditingStock] = useState<Stock | null>(null);
   const [editingCart, setEditingCart] = useState<CartItem | null>(null);
-
-  const [editTransactionForm, setEditTransactionForm] = useState<TransactionCreate>(createEmptyTransaction());
-  const [editStockForm, setEditStockForm] = useState<StockCreate>(createEmptyStock());
-  const [editCartForm, setEditCartForm] = useState<CartItemCreate>(createEmptyCart());
+  const [editTxForm, setEditTxForm] = useState<TransactionCreate>(emptyTransaction());
+  const [editStockForm, setEditStockForm] = useState<StockCreate>(emptyStock());
+  const [editCartForm, setEditCartForm] = useState<CartItemCreate>(emptyCart());
 
   useEffect(() => {
-    if (!user) {
-      fetchedUserIdRef.current = null;
-      setTransactionForm(createEmptyTransaction());
-      setStockForm(createEmptyStock());
-      setCartForm(createEmptyCart());
-      return;
-    }
-
-    setTransactionForm(createEmptyTransaction(user.user_id));
-    setStockForm(createEmptyStock(user.user_id));
-    setCartForm(createEmptyCart(user.user_id));
-
-    if (fetchedUserIdRef.current === user.user_id) {
-      return;
-    }
-
-    fetchedUserIdRef.current = user.user_id;
+    if (!user) { fetchedRef.current = null; return; }
+    setTxForm(emptyTransaction(user.user_id));
+    setStockForm(emptyStock(user.user_id));
+    setCartForm(emptyCart(user.user_id));
+    if (fetchedRef.current === user.user_id) return;
+    fetchedRef.current = user.user_id;
     fetchData();
   }, [user]);
 
   async function fetchData() {
     if (!user) return;
-
     setLoading(true);
     setError(null);
-
     try {
-      const [transactionsData, stocksData, cartsData] = await Promise.all([
+      const [txs, stks, crts] = await Promise.all([
         getUserTransactions(user.user_id),
         getUserStocks(user.user_id),
         getUserCarts(user.user_id),
       ]);
-      setTransactions(transactionsData);
-      setStocks(stocksData);
-      setCarts(cartsData);
+      setTransactions(txs);
+      setStocks(stks);
+      setCarts(crts);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to load data';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleAddTransaction() {
+  async function handleAddTx() {
     if (!user) return;
     try {
-      await createTransaction({ ...transactionForm, user_id: user.user_id });
-      setShowTransactionModal(false);
-      setTransactionForm(createEmptyTransaction(user.user_id));
+      await createTransaction({ ...txForm, user_id: user.user_id });
+      setShowTxModal(false);
+      setTxForm(emptyTransaction(user.user_id));
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to add transaction';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to add transaction');
     }
   }
 
@@ -131,11 +119,10 @@ export default function PersonalPage() {
     try {
       await createStock({ ...stockForm, user_id: user.user_id });
       setShowStockModal(false);
-      setStockForm(createEmptyStock(user.user_id));
+      setStockForm(emptyStock(user.user_id));
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to add stock';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to add stock');
     }
   }
 
@@ -144,510 +131,239 @@ export default function PersonalPage() {
     try {
       await createCart({ ...cartForm, user_id: user.user_id });
       setShowCartModal(false);
-      setCartForm(createEmptyCart(user.user_id));
+      setCartForm(emptyCart(user.user_id));
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to add cart item';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to add cart item');
     }
   }
 
-  function openEditTransaction(transaction: Transaction) {
-    setEditingTransaction(transaction);
-    setEditTransactionForm({
-      date: transaction.date,
-      amount: transaction.amount,
-      description: transaction.description || '',
-      type: transaction.type,
-    });
-    setShowEditTransactionModal(true);
+  function openEditTx(tx: Transaction) {
+    setEditingTx(tx);
+    setEditTxForm({ date: tx.date.substring(0, 10), amount: tx.amount, description: tx.description || '', type: tx.type });
+    setShowEditTxModal(true);
   }
 
-  async function handleUpdateTransaction() {
-    if (!editingTransaction) return;
+  async function handleUpdateTx() {
+    if (!editingTx) return;
     try {
-      await updateTransaction(editingTransaction.id, editTransactionForm);
-      setShowEditTransactionModal(false);
-      setEditingTransaction(null);
+      await updateTransaction(editingTx.transaction_id, editTxForm);
+      setShowEditTxModal(false);
+      setEditingTx(null);
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to update transaction';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to update transaction');
     }
   }
 
-  async function handleDeleteTransaction(transactionId: number) {
+  async function handleDeleteTx(id: string) {
     try {
-      await deleteTransaction(transactionId);
+      await deleteTransaction(id);
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to delete transaction';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
     }
   }
 
   function openEditStock(stock: Stock) {
     setEditingStock(stock);
-    setEditStockForm({ stock_item: stock.stock_item, quantity: stock.quantity });
+    setEditStockForm({ stock_item: stock.stock_item, quantity: stock.quantity || '' });
     setShowEditStockModal(true);
   }
 
   async function handleUpdateStock() {
     if (!editingStock) return;
     try {
-      await updateStock(editingStock.id, editStockForm);
+      await updateStock(editingStock.stock_id, editStockForm);
       setShowEditStockModal(false);
       setEditingStock(null);
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to update stock';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to update stock');
     }
   }
 
-  async function handleDeleteStock(stockId: number) {
+  async function handleDeleteStock(id: string) {
     try {
-      await deleteStock(stockId);
+      await deleteStock(id);
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to delete stock';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to delete stock');
     }
   }
 
   function openEditCart(cart: CartItem) {
     setEditingCart(cart);
-    setEditCartForm({
-      item_name: cart.itemName,
-      store: cart.store || '',
-      cost: cart.cost,
-      note: cart.notes || '',
-    });
+    setEditCartForm({ stock_item: cart.stock_item, store_name: cart.store_name || '', cost: cart.cost, description: cart.description || '' });
     setShowEditCartModal(true);
   }
 
   async function handleUpdateCart() {
     if (!editingCart) return;
     try {
-      await updateCart(editingCart.id, editCartForm);
+      await updateCart(editingCart.cart_id, editCartForm);
       setShowEditCartModal(false);
       setEditingCart(null);
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to update cart item';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to update cart item');
     }
   }
 
-  async function handleDeleteCart(cartId: number) {
+  async function handleDeleteCart(id: string) {
     try {
-      await deleteCart(cartId);
+      await deleteCart(id);
       fetchData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to delete cart item';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Failed to delete cart item');
     }
   }
 
   return (
     <div className="w-full">
       <header className="mb-5">
-        <h1 className="text-4xl font-bold tracking-tight mb-2">My Dashboard</h1>
-        <p className="text-slate-500">Manage your personal transactions, stocks, and carts.</p>
+        <h1 className="text-3xl font-bold tracking-tight">MyDash</h1>
+        <p className="text-slate-500 mt-1">Manage your personal transactions, stocks, and carts.</p>
       </header>
 
-      {loading && <div className="p-3 rounded-lg bg-blue-100 text-blue-800">Loading data…</div>}
-      {error && <div className="p-3 rounded-lg bg-red-100 text-red-800">{error}</div>}
+      {loading && <div className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>}
+      {error && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="space-y-8">
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-6">
+        {/* Transactions */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold">My Transactions</h2>
-              <p className="text-sm text-slate-500">Track every income and expense in one place.</p>
+              <h2 className="text-xl font-bold">Transactions</h2>
+              <p className="text-xs text-slate-500">Track income and expenses.</p>
             </div>
-            <button
-              onClick={() => setShowTransactionModal(true)}
-              className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Add Transaction
+            <button onClick={() => setShowTxModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+              + Add
             </button>
           </div>
-          <Transactions transactions={transactions} onEdit={openEditTransaction} onDelete={handleDeleteTransaction} />
+          <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Stocks */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold">My Stocks</h2>
-              <p className="text-sm text-slate-500">Manage your stock items and quantities easily.</p>
+              <h2 className="text-xl font-bold">Stocks</h2>
+              <p className="text-xs text-slate-500">Manage inventory items and quantities.</p>
             </div>
-            <button
-              onClick={() => setShowStockModal(true)}
-              className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Add Stock
+            <button onClick={() => setShowStockModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+              + Add
             </button>
           </div>
           <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Carts */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold">My Carts</h2>
-              <p className="text-sm text-slate-500">Keep cart items organized with notes and stores.</p>
+              <h2 className="text-xl font-bold">Cart</h2>
+              <p className="text-xs text-slate-500">Keep shopping items organised.</p>
             </div>
-            <button
-              onClick={() => setShowCartModal(true)}
-              className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Add Cart Item
+            <button onClick={() => setShowCartModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+              + Add
             </button>
           </div>
           <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />
         </section>
-
-        {showTransactionModal && (
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-              <h3 className="text-xl font-semibold mb-4">Add Transaction</h3>
-              <form onSubmit={(e) => { e.preventDefault(); handleAddTransaction(); }}>
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium">
-                    Date
-                    <input
-                      type="date"
-                      value={transactionForm.date}
-                      onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Amount
-                    <input
-                      type="number"
-                      value={transactionForm.amount}
-                      onChange={(e) => setTransactionForm({ ...transactionForm, amount: parseFloat(e.target.value) })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Description
-                    <input
-                      type="text"
-                      value={transactionForm.description}
-                      onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Type
-                    <select
-                      value={transactionForm.type}
-                      onChange={(e) => setTransactionForm({ ...transactionForm, type: e.target.value as 'income' | 'expense' })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    >
-                      <option value="income">Income</option>
-                      <option value="expense">Expense</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowTransactionModal(false)}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    Add
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showStockModal && (
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-              <h3 className="text-xl font-semibold mb-4">Add Stock</h3>
-              <form onSubmit={(e) => { e.preventDefault(); handleAddStock(); }}>
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium">
-                    Item Name
-                    <input
-                      type="text"
-                      value={stockForm.stock_item}
-                      onChange={(e) => setStockForm({ ...stockForm, stock_item: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Quantity
-                    <input
-                      type="number"
-                      value={stockForm.quantity}
-                      onChange={(e) => setStockForm({ ...stockForm, quantity: parseInt(e.target.value) })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowStockModal(false)}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    Add
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showCartModal && (
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-              <h3 className="text-xl font-semibold mb-4">Add Cart Item</h3>
-              <form onSubmit={(e) => { e.preventDefault(); handleAddCart(); }}>
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium">
-                    Item Name
-                    <input
-                      type="text"
-                      value={cartForm.item_name}
-                      onChange={(e) => setCartForm({ ...cartForm, item_name: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Store
-                    <input
-                      type="text"
-                      value={cartForm.store}
-                      onChange={(e) => setCartForm({ ...cartForm, store: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Cost
-                    <input
-                      type="number"
-                      value={cartForm.cost}
-                      onChange={(e) => setCartForm({ ...cartForm, cost: parseFloat(e.target.value) })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Note
-                    <input
-                      type="text"
-                      value={cartForm.note}
-                      onChange={(e) => setCartForm({ ...cartForm, note: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCartModal(false)}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    Add
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showEditTransactionModal && editingTransaction && (
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-              <h3 className="text-xl font-semibold mb-4">Edit Transaction</h3>
-              <form onSubmit={(e) => { e.preventDefault(); handleUpdateTransaction(); }}>
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium">
-                    Date
-                    <input
-                      type="date"
-                      value={editTransactionForm.date}
-                      onChange={(e) => setEditTransactionForm({ ...editTransactionForm, date: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Amount
-                    <input
-                      type="number"
-                      value={editTransactionForm.amount}
-                      onChange={(e) => setEditTransactionForm({ ...editTransactionForm, amount: parseFloat(e.target.value) })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Description
-                    <input
-                      type="text"
-                      value={editTransactionForm.description}
-                      onChange={(e) => setEditTransactionForm({ ...editTransactionForm, description: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Type
-                    <select
-                      value={editTransactionForm.type}
-                      onChange={(e) => setEditTransactionForm({ ...editTransactionForm, type: e.target.value as 'income' | 'expense' })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    >
-                      <option value="income">Income</option>
-                      <option value="expense">Expense</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => { setShowEditTransactionModal(false); setEditingTransaction(null); }}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showEditStockModal && editingStock && (
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-              <h3 className="text-xl font-semibold mb-4">Edit Stock</h3>
-              <form onSubmit={(e) => { e.preventDefault(); handleUpdateStock(); }}>
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium">
-                    Item Name
-                    <input
-                      type="text"
-                      value={editStockForm.stock_item}
-                      onChange={(e) => setEditStockForm({ ...editStockForm, stock_item: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Quantity
-                    <input
-                      type="number"
-                      value={editStockForm.quantity}
-                      onChange={(e) => setEditStockForm({ ...editStockForm, quantity: parseInt(e.target.value) })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => { setShowEditStockModal(false); setEditingStock(null); }}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showEditCartModal && editingCart && (
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-              <h3 className="text-xl font-semibold mb-4">Edit Cart Item</h3>
-              <form onSubmit={(e) => { e.preventDefault(); handleUpdateCart(); }}>
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium">
-                    Item Name
-                    <input
-                      type="text"
-                      value={editCartForm.item_name}
-                      onChange={(e) => setEditCartForm({ ...editCartForm, item_name: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Store
-                    <input
-                      type="text"
-                      value={editCartForm.store}
-                      onChange={(e) => setEditCartForm({ ...editCartForm, store: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Cost
-                    <input
-                      type="number"
-                      value={editCartForm.cost}
-                      onChange={(e) => setEditCartForm({ ...editCartForm, cost: parseFloat(e.target.value) })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                      required
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Note
-                    <input
-                      type="text"
-                      value={editCartForm.note}
-                      onChange={(e) => setEditCartForm({ ...editCartForm, note: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                    />
-                  </label>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => { setShowEditCartModal(false); setEditingCart(null); }}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Add Transaction Modal */}
+      {showTxModal && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Add Transaction</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleAddTx(); }} className="space-y-4">
+              <label className="block text-sm font-medium">Date<input type="date" value={txForm.date} onChange={(e) => setTxForm({ ...txForm, date: e.target.value })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Amount<input type="number" value={txForm.amount} onChange={(e) => setTxForm({ ...txForm, amount: parseFloat(e.target.value) })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Description<input type="text" value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} className={inputCls} /></label>
+              <label className="block text-sm font-medium">Type<select value={txForm.type} onChange={(e) => setTxForm({ ...txForm, type: e.target.value as 'income' | 'expense' })} className={inputCls}><option value="income">Income</option><option value="expense">Expense</option></select></label>
+              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowTxModal(false)} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Add</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Stock Modal */}
+      {showStockModal && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Add Stock</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleAddStock(); }} className="space-y-4">
+              <label className="block text-sm font-medium">Item Name<input type="text" value={stockForm.stock_item} onChange={(e) => setStockForm({ ...stockForm, stock_item: e.target.value })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Quantity<input type="text" value={stockForm.quantity || ''} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} placeholder="e.g. 500g, 2 kg, 10 pcs" className={inputCls} /></label>
+              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowStockModal(false)} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Add</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Cart Modal */}
+      {showCartModal && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Add Cart Item</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleAddCart(); }} className="space-y-4">
+              <label className="block text-sm font-medium">Item Name<input type="text" value={cartForm.stock_item} onChange={(e) => setCartForm({ ...cartForm, stock_item: e.target.value })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Store<input type="text" value={cartForm.store_name || ''} onChange={(e) => setCartForm({ ...cartForm, store_name: e.target.value })} className={inputCls} /></label>
+              <label className="block text-sm font-medium">Cost<input type="number" value={cartForm.cost} onChange={(e) => setCartForm({ ...cartForm, cost: parseFloat(e.target.value) })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Note<input type="text" value={cartForm.description || ''} onChange={(e) => setCartForm({ ...cartForm, description: e.target.value })} className={inputCls} /></label>
+              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowCartModal(false)} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Add</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditTxModal && editingTx && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Edit Transaction</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateTx(); }} className="space-y-4">
+              <label className="block text-sm font-medium">Date<input type="date" value={editTxForm.date} onChange={(e) => setEditTxForm({ ...editTxForm, date: e.target.value })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Amount<input type="number" value={editTxForm.amount} onChange={(e) => setEditTxForm({ ...editTxForm, amount: parseFloat(e.target.value) })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Description<input type="text" value={editTxForm.description} onChange={(e) => setEditTxForm({ ...editTxForm, description: e.target.value })} className={inputCls} /></label>
+              <label className="block text-sm font-medium">Type<select value={editTxForm.type} onChange={(e) => setEditTxForm({ ...editTxForm, type: e.target.value as 'income' | 'expense' })} className={inputCls}><option value="income">Income</option><option value="expense">Expense</option></select></label>
+              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setShowEditTxModal(false); setEditingTx(null); }} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Save</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Stock Modal */}
+      {showEditStockModal && editingStock && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Edit Stock</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateStock(); }} className="space-y-4">
+              <label className="block text-sm font-medium">Item Name<input type="text" value={editStockForm.stock_item} onChange={(e) => setEditStockForm({ ...editStockForm, stock_item: e.target.value })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Quantity<input type="text" value={editStockForm.quantity || ''} onChange={(e) => setEditStockForm({ ...editStockForm, quantity: e.target.value })} placeholder="e.g. 500g, 2 kg, 10 pcs" className={inputCls} /></label>
+              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setShowEditStockModal(false); setEditingStock(null); }} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Save</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Cart Modal */}
+      {showEditCartModal && editingCart && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Edit Cart Item</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateCart(); }} className="space-y-4">
+              <label className="block text-sm font-medium">Item Name<input type="text" value={editCartForm.stock_item} onChange={(e) => setEditCartForm({ ...editCartForm, stock_item: e.target.value })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Store<input type="text" value={editCartForm.store_name || ''} onChange={(e) => setEditCartForm({ ...editCartForm, store_name: e.target.value })} className={inputCls} /></label>
+              <label className="block text-sm font-medium">Cost<input type="number" value={editCartForm.cost} onChange={(e) => setEditCartForm({ ...editCartForm, cost: parseFloat(e.target.value) })} className={inputCls} required /></label>
+              <label className="block text-sm font-medium">Note<input type="text" value={editCartForm.description || ''} onChange={(e) => setEditCartForm({ ...editCartForm, description: e.target.value })} className={inputCls} /></label>
+              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setShowEditCartModal(false); setEditingCart(null); }} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Save</button></div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

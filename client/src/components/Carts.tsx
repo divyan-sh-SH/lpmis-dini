@@ -3,68 +3,68 @@ import type { CartItem } from '../types/dashboard';
 type CartsProps = {
   carts: CartItem[];
   onEdit: (cart: CartItem) => void;
-  onDelete: (cartId: number) => void;
+  onDelete: (cartId: string) => void;
 };
 
 export default function Carts({ carts, onEdit, onDelete }: CartsProps) {
+  if (carts.length === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500">
+        No cart items yet.
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <table className="min-w-full border-separate border-spacing-0">
-        <thead className="bg-slate-50">
-          <tr>
-            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Item Name</th>
-            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Store</th>
-            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cost</th>
-            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Note</th>
-            <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {carts.length === 0 ? (
+    <div>
+      {/* Desktop table */}
+      <div className="hidden sm:block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-full border-separate border-spacing-0">
+          <thead className="bg-slate-50">
             <tr>
-              <td className="px-5 py-8 text-center text-sm text-slate-500" colSpan={5}>
-                No cart items yet.
-              </td>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Item</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Store</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Cost</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Note</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
             </tr>
-          ) : (
-            carts.map((cart, index) => (
-              <tr
-                key={cart.id}
-                className={`transition-colors ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} hover:bg-slate-100`}
-              >
-                <td className="px-5 py-4 align-top">
-                  <div className="text-sm font-semibold text-slate-900">{cart.itemName}</div>
-                </td>
-                <td className="px-5 py-4 align-top">
-                  <div className="text-sm text-slate-700">{cart.store || '-'}</div>
-                </td>
-                <td className="px-5 py-4 align-top">
-                  <div className="text-sm font-semibold text-slate-900">Rs. {cart.cost}</div>
-                </td>
-                <td className="px-5 py-4 align-top">
-                  <div className="text-sm text-slate-700">{cart.notes || '-'}</div>
-                </td>
-                <td className="px-5 py-4 text-right align-top">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(cart)}
-                    className="rounded-full px-3 py-1 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(cart.id)}
-                    className="ml-2 rounded-full px-3 py-1 text-sm font-medium text-rose-600 transition hover:bg-rose-100"
-                  >
-                    Delete
-                  </button>
+          </thead>
+          <tbody>
+            {carts.map((c, index) => (
+              <tr key={c.cart_id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-slate-100 transition-colors`}>
+                <td className="px-4 py-3 text-sm font-semibold text-slate-900">{c.stock_item}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{c.store_name || '—'}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-slate-900">Rs. {c.cost}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{c.description || '—'}</td>
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => onEdit(c)} className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 transition">Edit</button>
+                  <button onClick={() => onDelete(c.cart_id)} className="ml-1 rounded-lg px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-100 transition">Delete</button>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="sm:hidden space-y-2">
+        {carts.map((c) => (
+          <div key={c.cart_id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{c.stock_item}</p>
+                {c.store_name && <p className="text-xs text-slate-500 mt-0.5">{c.store_name}</p>}
+                {c.description && <p className="text-xs text-slate-400 mt-0.5">{c.description}</p>}
+              </div>
+              <p className="shrink-0 text-sm font-bold text-slate-900">Rs. {c.cost}</p>
+            </div>
+            <div className="mt-3 flex gap-2 border-t border-slate-100 pt-2">
+              <button onClick={() => onEdit(c)} className="flex-1 rounded-lg py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition">Edit</button>
+              <button onClick={() => onDelete(c.cart_id)} className="flex-1 rounded-lg py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100 transition">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

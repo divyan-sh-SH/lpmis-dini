@@ -1,27 +1,33 @@
 export type TransactionType = 'income' | 'expense';
 
 export type Transaction = {
-  id: number;
+  transaction_id: string;
   date: string;
   type: TransactionType;
   amount: number;
   description?: string | null;
+  user_id?: number;
+  group_id?: string;
 };
 
 export type CartItem = {
-  id: number;
-  itemName: string;
-  store?: string | null;
+  cart_id: string;
+  stock_item: string;
+  store_name?: string | null;
+  quantity?: string | null;
   cost: number;
-  notes?: string | null;
+  description?: string | null;
+  user_id?: number;
+  group_id?: string;
 };
 
-export type Summary = {
-  monthStart: string;
-  monthEnd: string;
-  income: number;
-  expense: number;
-  remaining: number;
+export type Stock = {
+  stock_id: string;
+  stock_item: string;
+  quantity?: string | null;
+  description?: string | null;
+  user_id?: number;
+  group_id?: string;
 };
 
 export type User = {
@@ -29,41 +35,33 @@ export type User = {
   username: string;
   otp: number;
   role: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type UserCreate = {
-  username: string;
-  otp: number;
 };
 
 export type Group = {
-  group_id: number;
+  group_id: string;
   group_name: string;
   users: number[];
   created_by: number;
-  created_at: string;
+  created_on: string;
+};
+
+export type UserCreate = {
+  user_id: number;
+  username: string;
+  role: string;
+  otp: number;
 };
 
 export type GroupCreate = {
-  group_name: string;
+  name: string;
   users: number[];
   created_by: number;
-};
-
-export type Stock = {
-  id: number;
-  stock_item: string;
-  quantity: number;
-  user_id?: number;
-  group_id?: number;
-  created_at: string;
 };
 
 export type StockCreate = {
   stock_item: string;
-  quantity: number;
+  quantity?: string;
+  description?: string;
   user_id?: number;
   group_id?: string;
 };
@@ -78,11 +76,18 @@ export type TransactionCreate = {
 };
 
 export type CartItemCreate = {
-  item_name: string;
-  store?: string;
+  stock_item: string;
+  store_name?: string;
+  quantity?: string;
   cost: number;
-  note?: string;
+  description?: string;
   user_id?: number;
   group_id?: string;
 };
 
+export type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type ChatContext = 'personal' | 'group';

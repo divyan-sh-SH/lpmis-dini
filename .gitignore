@@ -17,6 +17,6 @@ __pycache__/
 .DS_Store
 dist/
 build/
-
+HomeDash/
 node_modules
 package-lock.json
