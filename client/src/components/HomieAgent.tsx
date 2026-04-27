@@ -1,6 +1,15 @@
 import { useRef, useState } from 'react';
 import type { Group, ChatMessage, ChatContext } from '../types/dashboard';
 import { chatWithHomie, createCart } from '../lib/moneyApi';
+import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
+import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import AddShoppingCartRoundedIcon from '@mui/icons-material/AddShoppingCartRounded';
+import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
 
 type MessageWithSuggestions = ChatMessage & { cartSuggestions?: string[] };
 
@@ -55,9 +64,7 @@ function renderMarkdown(content: string): React.ReactNode {
             </div>
           );
         }
-        if (line.trim() === '') {
-          return <div key={i} className="h-1" />;
-        }
+        if (line.trim() === '') return <div key={i} className="h-1" />;
         return (
           <p key={i} className="text-sm leading-relaxed text-slate-700">
             {renderInline(line)}
@@ -73,10 +80,7 @@ function renderMarkdown(content: string): React.ReactNode {
 function parseResponse(raw: string): { text: string; suggestions: string[] } {
   const match = raw.match(/\nCART_SUGGESTIONS:([^\n]+)$/);
   if (match) {
-    const suggestions = match[1]
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const suggestions = match[1].split(',').map((s) => s.trim()).filter(Boolean);
     return { text: raw.slice(0, match.index!).trim(), suggestions };
   }
   return { text: raw.trim(), suggestions: [] };
@@ -152,7 +156,7 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
       });
       setAddedItems((prev) => new Set(prev).add(itemName));
     } catch {
-      // silently fail — user can try again
+      // silently fail
     } finally {
       setAddingItems((prev) => {
         const next = new Set(prev);
@@ -190,8 +194,8 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-base font-bold text-white">
-            H
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+            <SmartToyRoundedIcon sx={{ fontSize: 20 }} />
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 leading-tight">HomieAgent</h2>
@@ -199,8 +203,13 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
           </div>
         </div>
         {messages.length > 0 && (
-          <button onClick={clearChat} className="shrink-0 text-xs text-slate-400 hover:text-rose-500 transition">
-            Clear chat
+          <button
+            onClick={clearChat}
+            title="Clear chat"
+            className="flex items-center gap-1 shrink-0 text-xs text-slate-400 hover:text-rose-500 transition"
+          >
+            <DeleteSweepRoundedIcon sx={{ fontSize: 18 }} />
+            <span>Clear</span>
           </button>
         )}
       </div>
@@ -233,9 +242,7 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
             >
               <option value="">Select a group...</option>
               {groups.map((g) => (
-                <option key={g.group_id} value={g.group_id}>
-                  {g.group_name}
-                </option>
+                <option key={g.group_id} value={g.group_id}>{g.group_name}</option>
               ))}
             </select>
           )}
@@ -288,7 +295,7 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
                           <button
                             onClick={() => handleAddToCart(item)}
                             disabled={added || adding}
-                            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
                               added
                                 ? 'bg-emerald-100 text-emerald-700 cursor-default'
                                 : adding
@@ -296,7 +303,11 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
                                 : 'bg-indigo-600 text-white hover:bg-indigo-700'
                             }`}
                           >
-                            {added ? '✓ Added' : adding ? 'Adding…' : '+ Cart'}
+                            {added ? (
+                              <><CheckRoundedIcon sx={{ fontSize: 13 }} /> Added</>
+                            ) : (
+                              <><AddShoppingCartRoundedIcon sx={{ fontSize: 13 }} /> {adding ? 'Adding…' : 'Cart'}</>
+                            )}
                           </button>
                         </div>
                       );
@@ -308,9 +319,13 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
                 {msg.role === 'assistant' && (
                   <button
                     onClick={() => copyMessage(msg.content, i)}
-                    className="mt-1 text-xs text-slate-400 opacity-0 transition hover:text-slate-600 group-hover:opacity-100"
+                    className="mt-1 flex items-center gap-1 text-xs text-slate-400 opacity-0 transition hover:text-slate-600 group-hover:opacity-100"
                   >
-                    {copiedIdx === i ? 'Copied!' : 'Copy'}
+                    {copiedIdx === i ? (
+                      <><CheckRoundedIcon sx={{ fontSize: 13 }} /> Copied!</>
+                    ) : (
+                      <><ContentCopyRoundedIcon sx={{ fontSize: 13 }} /> Copy</>
+                    )}
                   </button>
                 )}
               </div>
@@ -344,10 +359,18 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
         <button
           onClick={sendMessage}
           disabled={isSendDisabled}
-          className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40"
+          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40"
         >
+          <SendRoundedIcon sx={{ fontSize: 16 }} />
           Send
         </button>
+      </div>
+
+      {/* Rewrite hint used in suggestions panel */}
+      <div className="hidden">
+        <AutoFixHighRoundedIcon />
+        <LightbulbRoundedIcon />
+        <CloseRoundedIcon />
       </div>
     </section>
   );

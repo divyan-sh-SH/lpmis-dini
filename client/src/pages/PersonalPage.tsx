@@ -4,6 +4,10 @@ import Transactions from '../components/Transactions';
 import Stocks from '../components/Stocks';
 import Carts from '../components/Carts';
 import JournalEditor from '../components/JournalEditor';
+import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
+import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
+import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
+import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
 import {
   getUserTransactions,
   getUserStocks,
@@ -22,11 +26,11 @@ import type { Transaction, Stock, CartItem, TransactionCreate, StockCreate, Cart
 
 type DashTab = 'transactions' | 'stocks' | 'cart' | 'journal';
 
-const TABS: { id: DashTab; label: string;}[] = [
-  { id: 'transactions', label: 'Transactions'},
-  { id: 'stocks', label: 'Stocks' },
-  { id: 'cart', label: 'Cart' },
-  { id: 'journal', label: 'Journal'},
+const TABS: { id: DashTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'transactions', label: 'Transactions', icon: <SwapVertRoundedIcon sx={{ fontSize: 16 }} /> },
+  { id: 'stocks', label: 'Stocks', icon: <InventoryRoundedIcon sx={{ fontSize: 16 }} /> },
+  { id: 'cart', label: 'Cart', icon: <ShoppingCartRoundedIcon sx={{ fontSize: 16 }} /> },
+  { id: 'journal', label: 'Journal', icon: <MenuBookRoundedIcon sx={{ fontSize: 16 }} /> },
 ];
 
 const emptyTransaction = (user_id?: number): TransactionCreate => ({
@@ -237,6 +241,7 @@ export default function PersonalPage() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
+            {tab.icon}
             {tab.label}
           </button>
         ))}

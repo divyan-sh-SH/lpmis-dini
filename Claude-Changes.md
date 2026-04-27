@@ -4,6 +4,46 @@ All modifications made by Claude are logged here, newest first.
 
 ---
 
+## 2026-04-27 — Replace all emoji icons with MUI icons
+
+### Changes
+
+**`client/src/components/HomieAgent.tsx`** (full rewrite):
+- `SmartToyRoundedIcon` for AI avatar header
+- `DeleteSweepRoundedIcon` for Clear chat button
+- `ContentCopyRoundedIcon` / `CheckRoundedIcon` for copy/copied state
+- `SendRoundedIcon` for Send button
+- `AddShoppingCartRoundedIcon` / `CheckRoundedIcon` for cart suggestion buttons
+
+**`client/src/components/JournalEditor.tsx`**:
+- `MenuBookRoundedIcon` for journal list header and editor header
+- `EditNoteRoundedIcon` for "New Entry" and "Write Today's Entry" buttons
+- `EditRoundedIcon` / `DeleteRoundedIcon` for card action buttons
+- `AutoFixHighRoundedIcon` for Rewrite button and rewrite panel header
+- `LightbulbRoundedIcon` for AI Suggestion panel header
+- `CloseRoundedIcon` for Cancel and Reject buttons in rewrite panel
+- `CheckRoundedIcon` for Accept button in rewrite panel
+- `CheckCircleRoundedIcon` for save status "Saved" indicator
+- `ArrowBackRoundedIcon` for "All Journals" back button
+- `SaveRoundedIcon` for Save Entry button
+
+**`client/src/pages/PersonalPage.tsx`**:
+- `SwapVertRoundedIcon`, `InventoryRoundedIcon`, `ShoppingCartRoundedIcon`, `MenuBookRoundedIcon` in tab bar
+
+**`client/src/pages/GroupPage.tsx`**:
+- Same 3 tab icons as PersonalPage (excluding Journal tab)
+
+**`client/src/components/NavBar.tsx`**:
+- `AccountCircleRoundedIcon` for user profile button
+- `LogoutRoundedIcon` in logout confirmation dialog
+
+**`client/src/pages/HomePage.tsx`** and **`client/src/pages/GroupsPage.tsx`**:
+- `ChevronRightRoundedIcon` for group card arrows
+
+**Package installed:** `@mui/icons-material @mui/material @emotion/react @emotion/styled`
+
+---
+
 ## 2026-04-27 — Journal List View + Edit/Delete
 
 ### Changes

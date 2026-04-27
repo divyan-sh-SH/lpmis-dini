@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { useAuth } from '../contexts/AuthContext';
 import { getGroupsForUser, getAllUsers, createGroup } from '../lib/moneyApi';
 import type { Group, GroupCreate, User } from '../types/dashboard';
@@ -104,7 +105,7 @@ export default function GroupsPage() {
                     <h3 className="truncate font-bold text-slate-900">{group.group_name}</h3>
                     <p className="text-xs text-slate-400 mt-0.5">{group.users.length} member{group.users.length !== 1 ? 's' : ''}</p>
                   </div>
-                  <span className="shrink-0 text-slate-300 group-hover:text-blue-400 transition">→</span>
+                  <ChevronRightRoundedIcon sx={{ fontSize: 18 }} className="shrink-0 text-slate-300 group-hover:text-blue-400 transition" />
                 </div>
               </Link>
             );

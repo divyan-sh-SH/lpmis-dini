@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
+import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 
 export default function NavBar() {
   const { logout } = useAuth();
@@ -16,11 +18,11 @@ export default function NavBar() {
       </Link>
 
       <div className="flex gap-1 items-center">
-        <NavLink to="/personal" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-700 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-700 border-blue-300/35' : ''}`}>
-          MyDash
+        <NavLink to="/personal" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-500 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-500 border-blue-300/35' : ''}`}>
+          My Dash
         </NavLink>
-        <NavLink to="/groups" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-700 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-700 border-blue-300/35' : ''}`}>
-          MyHomeDash
+        <NavLink to="/groups" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-500 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-500 border-blue-300/35' : ''}`}>
+          My HomeDash
         </NavLink>
       </div>
 
@@ -30,9 +32,9 @@ export default function NavBar() {
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
-            className="cursor-pointer list-none select-none font-bold text-slate-900"
+            className="flex items-center gap-1 cursor-pointer select-none font-bold text-slate-900 hover:text-slate-600 transition"
           >
-            User
+            <AccountCircleRoundedIcon sx={{ fontSize: 26 }} />
           </button>
           <div
             className={`absolute right-0 top-[110%] bg-white border border-slate-200 rounded-xl p-1 min-w-[180px] shadow-lg ${menuOpen ? 'block' : 'hidden'}`}
@@ -56,8 +58,8 @@ export default function NavBar() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
         <div className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex flex-col items-center text-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-2xl">
-              👋
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-400">
+              <LogoutRoundedIcon sx={{ fontSize: 24 }} />
             </div>
             <h3 className="text-base font-bold text-slate-900">Log out?</h3>
             <p className="text-sm text-slate-500">Are you sure you want to log out?</p>

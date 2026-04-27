@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
+import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
+import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import Transactions from '../components/Transactions';
 import Stocks from '../components/Stocks';
 import Carts from '../components/Carts';
@@ -21,10 +24,10 @@ import type { Transaction, Stock, CartItem, TransactionCreate, StockCreate, Cart
 
 type GroupTab = 'transactions' | 'stocks' | 'cart';
 
-const TABS: { id: GroupTab; label: string;}[] = [
-  { id: 'transactions', label: 'Transactions'},
-  { id: 'stocks', label: 'Stocks' },
-  { id: 'cart', label: 'Cart' },
+const TABS: { id: GroupTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'transactions', label: 'Transactions', icon: <SwapVertRoundedIcon sx={{ fontSize: 16 }} /> },
+  { id: 'stocks', label: 'Stocks', icon: <InventoryRoundedIcon sx={{ fontSize: 16 }} /> },
+  { id: 'cart', label: 'Cart', icon: <ShoppingCartRoundedIcon sx={{ fontSize: 16 }} /> },
 ];
 
 const emptyTransaction = (group_id?: string): TransactionCreate => ({
@@ -218,6 +221,7 @@ export default function GroupPage() {
               activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
+            {tab.icon}
             {tab.label}
           </button>
         ))}

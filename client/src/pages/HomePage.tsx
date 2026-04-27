@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { useAuth } from '../contexts/AuthContext';
 import HomieAgent from '../components/HomieAgent';
 import LineChart from '../components/LineChart';
@@ -137,7 +138,7 @@ export default function HomePage() {
                           <p className="truncate font-semibold text-slate-900 text-sm">{g.group_name}</p>
                           <p className="text-xs text-slate-400">{g.users.length} member{g.users.length !== 1 ? 's' : ''}</p>
                         </div>
-                        <span className="ml-auto shrink-0 text-slate-300 group-hover:text-blue-400 transition text-sm">→</span>
+                        <ChevronRightRoundedIcon sx={{ fontSize: 18 }} className="ml-auto shrink-0 text-slate-300 group-hover:text-blue-400 transition" />
                       </div>
                     </Link>
                   );

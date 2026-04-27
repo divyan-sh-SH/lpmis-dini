@@ -8,6 +8,17 @@ import {
   deleteJournalEntry,
   rewriteJournal,
 } from '../lib/moneyApi';
+import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
+import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
+import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -90,20 +101,15 @@ export default function JournalEditor({ userId }: { userId: number }) {
 
   function openCreate() {
     const today = todayStr();
-    const existing = journals.find((j) => j.date === today);
-    if (existing) {
-      openEdit(existing);
-    } else {
-      setEditorTarget({ mode: 'create', date: today });
-      setEditorDate(today);
-      setContent('');
-      setSavedContent('');
-      setJournalId(null);
-      setSaveStatus('idle');
-      setSaveError(null);
-      closeRewrite();
-      setView('editor');
-    }
+    setEditorTarget({ mode: 'create', date: today });
+    setEditorDate(today);
+    setContent('');
+    setSavedContent('');
+    setJournalId(null);
+    setSaveStatus('idle');
+    setSaveError(null);
+    closeRewrite();
+    setView('editor');
   }
 
   function openEdit(entry: Journal) {
@@ -140,10 +146,18 @@ export default function JournalEditor({ userId }: { userId: number }) {
         const updated = await updateJournalEntry(journalId, { content });
         setSavedContent(updated.content ?? '');
       } else {
-        const created = await createJournalEntry({ user_id: userId, date: editorDate, content });
-        setJournalId(created.journal_id);
-        setSavedContent(created.content ?? '');
-        setEditorTarget({ mode: 'edit', entry: created });
+        const existingForDate = journals.find((j) => j.date === editorDate);
+        if (existingForDate) {
+          const updated = await updateJournalEntry(existingForDate.journal_id, { content });
+          setJournalId(existingForDate.journal_id);
+          setSavedContent(updated.content ?? '');
+          setEditorTarget({ mode: 'edit', entry: { ...existingForDate, content: updated.content ?? '' } });
+        } else {
+          const created = await createJournalEntry({ user_id: userId, date: editorDate, content });
+          setJournalId(created.journal_id);
+          setSavedContent(created.content ?? '');
+          setEditorTarget({ mode: 'edit', entry: created });
+        }
       }
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2500);
@@ -215,7 +229,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <span>📓</span> My Journal
+              <MenuBookRoundedIcon sx={{ fontSize: 22 }} className="text-indigo-500" /> My Journals
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {journals.length} {journals.length === 1 ? 'entry' : 'entries'}
@@ -225,7 +239,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
             onClick={openCreate}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
           >
-            ✏️ New Entry
+            <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> New Entry
           </button>
         </div>
 
@@ -240,14 +254,16 @@ export default function JournalEditor({ userId }: { userId: number }) {
           </div>
         ) : journals.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-indigo-200 bg-gradient-to-br from-violet-50 to-indigo-50 py-16 text-center">
-            <div className="mb-3 text-4xl">📓</div>
+            <div className="mb-3 text-indigo-300">
+              <MenuBookRoundedIcon sx={{ fontSize: 48 }} />
+            </div>
             <p className="font-semibold text-slate-700">No journal entries yet</p>
             <p className="mt-1 text-sm text-slate-400">Start writing your first entry today.</p>
             <button
               onClick={openCreate}
               className="mt-5 flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
             >
-              ✏️ Write Today's Entry
+              <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> Write Today's Entry
             </button>
           </div>
         ) : (
@@ -327,20 +343,20 @@ export default function JournalEditor({ userId }: { userId: number }) {
 
                   {/* Action buttons */}
                   {!isDeleting && (
-                    <div className="flex shrink-0 flex-col gap-1 opacity-0 transition group-hover:opacity-100">
+                    <div className="flex shrink-0 flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                       <button
                         onClick={() => openEdit(entry)}
                         title="Edit"
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-indigo-100 hover:text-indigo-600"
                       >
-                        ✏️
+                        <EditRoundedIcon sx={{ fontSize: 16 }} />
                       </button>
                       <button
                         onClick={() => setDeletingId(entry.journal_id)}
                         title="Delete"
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-500"
                       >
-                        🗑️
+                        <DeleteRoundedIcon sx={{ fontSize: 16 }} />
                       </button>
                     </div>
                   )}
@@ -365,10 +381,10 @@ export default function JournalEditor({ userId }: { userId: number }) {
     'text-slate-400';
 
   const saveStatusEl = () => {
-    if (saveStatus === 'saving') return <span className="text-xs text-indigo-500 animate-pulse">Saving…</span>;
-    if (saveStatus === 'saved') return <span className="text-xs font-medium text-emerald-600">✓ Saved</span>;
-    if (saveStatus === 'unsaved') return <span className="text-xs font-medium text-amber-500">● Unsaved</span>;
-    if (saveStatus === 'error') return <span className="text-xs text-red-500">Save failed</span>;
+    if (saveStatus === 'saving') return <span className="text-sm text-indigo-500 animate-pulse">Saving…</span>;
+    if (saveStatus === 'saved') return <span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><CheckCircleRoundedIcon sx={{ fontSize: 15 }} /> Saved</span>;
+    if (saveStatus === 'unsaved') return <span className="text-sm font-medium text-amber-500">● Unsaved</span>;
+    if (saveStatus === 'error') return <span className="text-sm text-red-500">Save failed</span>;
     return null;
   };
 
@@ -377,49 +393,55 @@ export default function JournalEditor({ userId }: { userId: number }) {
       {/* Back nav */}
       <button
         onClick={goBack}
-        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-800"
+        className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-400 transition hover:text-slate-700"
       >
-        ← All Journals
+        <ArrowBackRoundedIcon sx={{ fontSize: 20 }} /> All Journals
       </button>
 
-      <div className="rounded-3xl bg-gradient-to-br from-violet-50 via-indigo-50 to-sky-50 border border-indigo-100 shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
         {/* Top accent bar */}
         <div className="h-1 w-full bg-gradient-to-r from-violet-400 via-indigo-400 to-sky-400" />
 
-        <div className="p-5 sm:p-6">
+        <div className="p-3">
           {/* Header */}
-          <div className="mb-5 flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xl">📓</span>
-                <h2 className="text-lg font-bold text-slate-800">
-                  {isCreateMode ? 'New Journal Entry' : 'Edit Journal Entry'}
-                </h2>
-              </div>
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+                {isCreateMode ? 'New Journal Entry' : 'Edit Journal Entry'}
+              </h2>
 
               {isCreateMode ? (
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-slate-500">Date:</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <label className="text-xs font-medium text-slate-400">Date:</label>
                   <input
                     type="date"
                     value={editorDate}
                     max={todayStr()}
                     onChange={(e) => setEditorDate(e.target.value)}
-                    className="rounded-lg border border-indigo-200 bg-white/70 px-2 py-1 text-xs text-slate-700 outline-none focus:border-indigo-400"
+                    className="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-indigo-400"
                   />
                 </div>
               ) : (
-                <p className="text-sm text-indigo-500 font-medium">{formatDateFull(editorDate)}</p>
+                <p className="text-xs text-indigo-400 font-medium mt-0.5">{formatDateFull(editorDate)}</p>
               )}
             </div>
 
-            <button
-              onClick={openRewrite}
-              disabled={!content.trim() || showRewritePrompt}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <span>✨</span> Rewrite
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={handleSave}
+                disabled={overLimit || saveStatus === 'saving' || saveStatus === 'idle' || saveStatus === 'saved'}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+              <button
+                onClick={openRewrite}
+                disabled={!content.trim() || showRewritePrompt}
+                className="rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Rewrite
+              </button>
+            </div>
           </div>
 
           {/* Textarea */}
@@ -427,35 +449,26 @@ export default function JournalEditor({ userId }: { userId: number }) {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder={`How was your day? What's on your mind?\n\nWrite freely — this is your space…`}
-            rows={12}
-            className="w-full resize-none rounded-2xl border border-indigo-100 bg-white/70 px-5 py-4 text-sm leading-7 text-slate-700 placeholder-slate-300 shadow-inner outline-none transition focus:border-indigo-300 focus:bg-white focus:shadow-md"
+            rows={18}
+            className="w-full resize-none rounded-xl border border-indigo-100 bg-white px-4 py-3 text-lg leading-8 text-slate-700 placeholder-slate-300 shadow-inner outline-none transition focus:border-indigo-300 focus:shadow-md"
             style={{ fontFamily: 'Georgia, serif' }}
           />
 
-          {/* Footer */}
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className={`text-xs font-medium ${wordCountColor}`}>
-                {wordCount.toLocaleString()} / {WORD_LIMIT.toLocaleString()} words
-              </span>
-              {saveStatusEl()}
-            </div>
-            <button
-              onClick={handleSave}
-              disabled={overLimit || saveStatus === 'saving' || saveStatus === 'idle' || saveStatus === 'saved'}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Save Entry
-            </button>
+          {/* Footer — word count only */}
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className={`text-sm font-medium ${wordCountColor}`}>
+              {wordCount.toLocaleString()} / {WORD_LIMIT.toLocaleString()} words
+            </span>
+            {saveStatusEl()}
           </div>
 
           {overLimit && (
-            <p className="mt-1.5 text-xs text-red-500">
+            <p className="mt-1 text-sm text-red-500">
               Over the {WORD_LIMIT.toLocaleString()}-word limit. Please shorten your entry.
             </p>
           )}
           {saveError && (
-            <p className="mt-1.5 text-xs text-red-500">{saveError}</p>
+            <p className="mt-1 text-sm text-red-500">{saveError}</p>
           )}
 
           {/* Rewrite prompt */}
@@ -463,12 +476,12 @@ export default function JournalEditor({ userId }: { userId: number }) {
             <div className="mt-4 rounded-2xl border border-violet-200 bg-white/80 p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">✨</span>
+                  <AutoFixHighRoundedIcon sx={{ fontSize: 18 }} className="text-violet-500" />
                   <p className="text-sm font-semibold text-slate-700">AI Rewrite</p>
                   <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-600">HomieAgent</span>
                 </div>
-                <button onClick={closeRewrite} className="text-xs text-slate-400 hover:text-slate-600 transition">
-                  ✕ Cancel
+                <button onClick={closeRewrite} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition">
+                  <CloseRoundedIcon sx={{ fontSize: 14 }} /> Cancel
                 </button>
               </div>
 
@@ -504,7 +517,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
               {suggestion && (
                 <div className="mt-4 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 p-4">
                   <div className="mb-2 flex items-center gap-2">
-                    <span>💡</span>
+                    <LightbulbRoundedIcon sx={{ fontSize: 16 }} className="text-amber-500" />
                     <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">AI Suggestion</p>
                   </div>
                   <p
@@ -516,15 +529,15 @@ export default function JournalEditor({ userId }: { userId: number }) {
                   <div className="mt-3 flex justify-end gap-2">
                     <button
                       onClick={closeRewrite}
-                      className="rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                      className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                     >
-                      ✕ Reject
+                      <CloseRoundedIcon sx={{ fontSize: 13 }} /> Reject
                     </button>
                     <button
                       onClick={acceptSuggestion}
-                      className="rounded-xl bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600"
+                      className="flex items-center gap-1 rounded-xl bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600"
                     >
-                      ✓ Accept
+                      <CheckRoundedIcon sx={{ fontSize: 13 }} /> Accept
                     </button>
                   </div>
                 </div>
