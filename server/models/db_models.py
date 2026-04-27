@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import UUID, Column, Integer, String, Float, Text, TIMESTAMP, BigInteger, ForeignKey, Enum, CheckConstraint
+from sqlalchemy import UUID, Column, Integer, String, Float, Text, TIMESTAMP, BigInteger, ForeignKey, Enum, CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY
 from datetime import datetime
 import uuid
@@ -68,7 +68,7 @@ class Cart(Base):
 
 class Transaction(Base):
     __tablename__ = "homedash_transaction"
-    
+
     transaction_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(BigInteger, ForeignKey("homedash_user.user_id"), nullable=True)
     group_id = Column(UUID(as_uuid=True), ForeignKey("homedash_group.group_id"), nullable=True)
@@ -76,10 +76,36 @@ class Transaction(Base):
     type = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
     description = Column(Text, nullable=True)
-    
+
     __table_args__ = (
         CheckConstraint(
             "(user_id IS NOT NULL AND group_id IS NULL) OR (user_id IS NULL AND group_id IS NOT NULL)",
             name="check_owner_exists_transaction"
         ),
+    )
+
+
+class Journal(Base):
+    __tablename__ = "homedash_journal"
+
+    # PostgreSQL DDL:
+    # CREATE TABLE homedash_journal (
+    #     journal_id  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    #     user_id     BIGINT       NOT NULL REFERENCES homedash_user(user_id) ON DELETE CASCADE,
+    #     date        VARCHAR(10)  NOT NULL,          -- YYYY-MM-DD
+    #     content     TEXT,
+    #     created_at  TIMESTAMP    NOT NULL DEFAULT now(),
+    #     updated_at  TIMESTAMP    NOT NULL DEFAULT now(),
+    #     UNIQUE (user_id, date)
+    # );
+
+    journal_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(BigInteger, ForeignKey("homedash_user.user_id"), nullable=False)
+    date = Column(String(10), nullable=False)
+    content = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+    updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_journal_user_date"),
     )

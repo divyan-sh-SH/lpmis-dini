@@ -4,6 +4,90 @@ All modifications made by Claude are logged here, newest first.
 
 ---
 
+## 2026-04-27 — Journal List View + Edit/Delete
+
+### Changes
+
+**`server/api/journal_router.py`:**
+- Added `GET /journal/user/{user_id}` — returns all entries for a user sorted by date descending
+- Added `DELETE /journal/{journal_id}` — deletes an entry (204 No Content)
+
+**`client/src/lib/moneyApi.ts`:**
+- Added `getJournalEntries(user_id)` and `deleteJournalEntry(journal_id)`
+
+**`client/src/components/JournalEditor.tsx`** (full rewrite):
+- **List view** (default): cards with colored date badge (today highlighted in indigo), weekday, word count, 2-line serif preview; edit ✏️ and delete 🗑️ buttons reveal on hover; inline delete confirmation ("Delete? [Yes, delete] [Cancel]") replaces card content — no modal needed
+- **Editor view**: "← All Journals" back button; create mode shows a date picker (max=today), edit mode shows formatted date as header; same textarea/word-count/rewrite flow as before; saving refreshes the list on back
+- **Smart "New Entry"**: if today's entry already exists, clicking "New Entry" opens it for editing instead of creating a duplicate
+- **Empty state**: illustrated empty state with a direct "Write Today's Entry" CTA
+
+---
+
+## 2026-04-27 — Journal Feature + Tab Navigation
+
+### Changes
+
+**Server — new DB table & endpoints:**
+
+| File | Change |
+|---|---|
+| `server/models/db_models.py` | Added `Journal` SQLAlchemy model (`homedash_journal`); includes PostgreSQL DDL comment; `UniqueConstraint(user_id, date)` — one entry per user per day |
+| `server/models/request_models.py` | Added `JournalCreate`, `JournalResponse`, `JournalUpdate` Pydantic models |
+| `server/api/journal_router.py` | **NEW** — `GET /journal/user/{user_id}/date/{date}`, `POST /journal`, `PUT /journal/{journal_id}`, `POST /journal/rewrite` (AI rewrite with dedicated system prompt) |
+| `server/api/__init__.py` | Registered `journal_router` |
+
+**Client — new component & tab navigation:**
+
+| File | Change |
+|---|---|
+| `client/src/types/dashboard.ts` | Added `Journal`, `JournalCreate`, `JournalUpdate` types |
+| `client/src/lib/moneyApi.ts` | Added `getJournalEntry`, `createJournalEntry`, `updateJournalEntry`, `rewriteJournal` API functions |
+| `client/src/components/JournalEditor.tsx` | **NEW** — journal for today's date; serif textarea; 5000-word live counter (amber/red when near limit); "● Unsaved / ✓ Saved / Saving…" indicator; "✨ Rewrite" button → one-line prompt → AI suggestion preview → Accept (replaces content) / Reject; violet-indigo gradient theme |
+| `client/src/pages/PersonalPage.tsx` | Replaced stacked sections with tab bar: `↕ Transactions`, `📦 Stocks`, `🛒 Cart`, `📓 Journal`; Journal tab shows `JournalEditor`; Add button is contextual to active tab |
+| `client/src/pages/GroupPage.tsx` | Same tab bar but 3 tabs only (`Transactions`, `Stocks`, `Cart` — no Journal); single section panel replaces stacked layout |
+
+---
+
+## 2026-04-27 — HomieAgent: Scroll Fix, Markdown & Cart Suggestions
+
+### Changes
+
+**`client/src/components/HomieAgent.tsx`:**
+- **Scroll fix**: replaced `scrollIntoView` (caused full-page scroll) with `containerRef.current.scrollTop = scrollHeight` — scrolls only the chat container
+- **Markdown rendering**: added `renderMarkdown` + `renderInline` — supports `**bold**`, `- bullets`, `1. numbered lists`, `---` dividers, proper spacing
+- **Cart suggestion cards**: assistant messages now show inline "+ Cart" action cards for items the AI suggests buying; tracks per-item added/adding state; calls `createCart` with defaults (cost=0, store='', description/quantity null) scoped to current tab (personal or group)
+- **Loading indicator**: replaced "Thinking..." text with animated bouncing dots
+
+**`server/api/chat_router.py`:**
+- Updated system prompt to instruct Claude to append `CART_SUGGESTIONS:item1,item2,item3` at the end of responses when suggesting items not in stock; client parses and strips this line before display
+
+---
+
+## 2026-04-26 — Phase 5: Chart, Cleanup & Professional Groups
+
+### Changes
+
+**`server/models/request_models.py`:**
+- Removed duplicate `StockUpdate` class that had `quantity: Optional[int] = Field(None, ge=0)` — Python was using this second definition, breaking stock quantity updates. The correct first definition with `quantity: Optional[str]` is now the only one.
+
+**`client/src/components/LineChart.tsx`** (NEW):
+- Pure SVG line chart (no external library), `viewBox="0 0 500 160"`, fully responsive
+- Period toggle: "This Week" (Mon–today) / "This Month" (1st–today)
+- Fills all days with zero for missing data; hover tooltip with date+amount; gradient area fill; Y-axis k/L formatting
+- `onPeriodChange` callback for parent to sync stat cards
+
+**`client/src/pages/HomePage.tsx`** (rewritten):
+- Removed: tab bar (MyDash/MyHomeDash buttons), recent transactions list, stocks panel, cart panel, standalone 4 stat cards
+- Added: "MyDash Overview" section — "Manage MyDash →" link (top right) + `LineChart` + 3 period-synced stat cards (Net Balance, Income, Expenses)
+- Stats are computed from transactions filtered to the chart's active period (`week` or `month`)
+- "My HomeDash List" groups section with letter-avatar cards replacing old plain cards
+
+**`client/src/pages/GroupsPage.tsx`** (updated):
+- Professional group cards: gradient letter-avatar (A–Z initials), member count, arrow on hover
+- Subtitle updated to "My HomeDash List — manage your shared groups"
+
+---
+
 ## 2026-04-26 — UI Polish & Naming Consistency
 
 ### Changes

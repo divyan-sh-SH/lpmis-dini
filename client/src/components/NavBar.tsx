@@ -6,8 +6,10 @@ import Logo from './Logo';
 export default function NavBar() {
   const { logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   return (
+    <>
     <nav className="sticky top-0 z-10 -mx-5 mb-5 bg-white/85 backdrop-blur-[10px] border-b border-slate-200/90 p-3.5 flex items-center justify-between gap-4">
       <Link to="/" className="no-underline text-inherit" aria-label="Go to HomeDash home">
         <Logo />
@@ -36,15 +38,12 @@ export default function NavBar() {
             className={`absolute right-0 top-[110%] bg-white border border-slate-200 rounded-xl p-1 min-w-[180px] shadow-lg ${menuOpen ? 'block' : 'hidden'}`}
           >
             <button type="button" className="w-full border-0 bg-transparent px-2.5 py-2.5 rounded-lg cursor-pointer text-left font-semibold text-slate-900 hover:bg-slate-50">
-              Profile
-            </button>
-            <button type="button" className="w-full border-0 bg-transparent px-2.5 py-2.5 rounded-lg cursor-pointer text-left font-semibold text-slate-900 hover:bg-slate-50">
-              Settings
+              Profile Settings
             </button>
             <button
               type="button"
               className="w-full border-0 bg-transparent px-2.5 py-2.5 rounded-lg cursor-pointer text-left font-semibold text-slate-900 hover:bg-slate-50"
-              onClick={logout}
+              onClick={() => { setMenuOpen(false); setShowLogoutConfirm(true); }}
             >
               Logout
             </button>
@@ -52,5 +51,36 @@ export default function NavBar() {
         </div>
       </div>
     </nav>
+
+    {showLogoutConfirm && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl">
+          <div className="mb-4 flex flex-col items-center text-center gap-2">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-2xl">
+              👋
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Log out?</h3>
+            <p className="text-sm text-slate-500">Are you sure you want to log out?</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowLogoutConfirm(false)}
+              className="flex-1 rounded-full bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+            >
+              No, stay
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex-1 rounded-full bg-red-500 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600"
+            >
+              Yes, logout
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

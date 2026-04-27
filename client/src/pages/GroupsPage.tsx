@@ -69,7 +69,7 @@ export default function GroupsPage() {
       <header className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">MyHomeDash</h1>
-          <p className="text-slate-500 mt-1">Manage your groups and shared activities.</p>
+          <p className="text-slate-500 mt-1">My HomeDash List — manage your shared groups.</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
@@ -88,19 +88,27 @@ export default function GroupsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {groups.map((group) => (
-            <Link
-              key={group.group_id}
-              to={`/groups/${group.group_id}`}
-              className="no-underline"
-            >
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-blue-300 hover:shadow-md transition">
-                <h3 className="font-bold text-slate-900">{group.group_name}</h3>
-                <p className="text-xs text-slate-500 mt-1">{group.users.length} member{group.users.length !== 1 ? 's' : ''}</p>
-                <div className="mt-3 text-xs font-semibold text-blue-600">Open →</div>
-              </div>
-            </Link>
-          ))}
+          {groups.map((group) => {
+            const initials = group.group_name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+            return (
+              <Link
+                key={group.group_id}
+                to={`/groups/${group.group_id}`}
+                className="no-underline group"
+              >
+                <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-bold text-slate-900">{group.group_name}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">{group.users.length} member{group.users.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <span className="shrink-0 text-slate-300 group-hover:text-blue-400 transition">→</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
 

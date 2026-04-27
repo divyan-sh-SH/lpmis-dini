@@ -127,12 +127,23 @@ class TransactionUpdate(BaseModel):
     date: Optional[datetime] = None
     type: Optional[str] = None
 
-class StockUpdate(BaseModel):
-    product_name: Optional[str] = None
-    quantity: Optional[int] = Field(None, ge=0)
-    price: Optional[float] = Field(None, gt=0)
-    description: Optional[str] = None
-    created_by: int
+# --- JOURNAL MODELS ---
+class JournalCreate(BaseModel):
+    user_id: int
+    date: str  # YYYY-MM-DD
+    content: str = ""
+
+class JournalResponse(BaseModel):
+    journal_id: UUID
+    user_id: int
+    date: str
+    content: Optional[str]
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
+
+class JournalUpdate(BaseModel):
+    content: str
+

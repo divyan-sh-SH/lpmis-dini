@@ -19,6 +19,14 @@ import {
 } from '../lib/moneyApi';
 import type { Transaction, Stock, CartItem, TransactionCreate, StockCreate, CartItemCreate } from '../types/dashboard';
 
+type GroupTab = 'transactions' | 'stocks' | 'cart';
+
+const TABS: { id: GroupTab; label: string;}[] = [
+  { id: 'transactions', label: 'Transactions'},
+  { id: 'stocks', label: 'Stocks' },
+  { id: 'cart', label: 'Cart' },
+];
+
 const emptyTransaction = (group_id?: string): TransactionCreate => ({
   date: new Date().toISOString().split('T')[0],
   amount: 0,
@@ -48,6 +56,7 @@ const btnPrimary = 'rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold tex
 export default function GroupPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const fetchedRef = useRef<string | null>(null);
+  const [activeTab, setActiveTab] = useState<GroupTab>('transactions');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [carts, setCarts] = useState<CartItem[]>([]);
@@ -106,36 +115,24 @@ export default function GroupPage() {
     if (!groupId) return;
     try {
       await createTransaction({ ...txForm, group_id: groupId });
-      setShowTxModal(false);
-      setTxForm(emptyTransaction(groupId));
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add transaction');
-    }
+      setShowTxModal(false); setTxForm(emptyTransaction(groupId)); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add transaction'); }
   }
 
   async function handleAddStock() {
     if (!groupId) return;
     try {
       await createStock({ ...stockForm, group_id: groupId });
-      setShowStockModal(false);
-      setStockForm(emptyStock(groupId));
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add stock');
-    }
+      setShowStockModal(false); setStockForm(emptyStock(groupId)); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add stock'); }
   }
 
   async function handleAddCart() {
     if (!groupId) return;
     try {
       await createCart({ ...cartForm, group_id: groupId });
-      setShowCartModal(false);
-      setCartForm(emptyCart(groupId));
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add cart item');
-    }
+      setShowCartModal(false); setCartForm(emptyCart(groupId)); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add cart item'); }
   }
 
   function openEditTx(tx: Transaction) {
@@ -148,12 +145,8 @@ export default function GroupPage() {
     if (!editingTx) return;
     try {
       await updateTransaction(editingTx.transaction_id, editTxForm);
-      setShowEditTxModal(false);
-      setEditingTx(null);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update transaction');
-    }
+      setShowEditTxModal(false); setEditingTx(null); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to update transaction'); }
   }
 
   async function handleDeleteTx(id: string) {
@@ -171,12 +164,8 @@ export default function GroupPage() {
     if (!editingStock) return;
     try {
       await updateStock(editingStock.stock_id, editStockForm);
-      setShowEditStockModal(false);
-      setEditingStock(null);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update stock');
-    }
+      setShowEditStockModal(false); setEditingStock(null); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to update stock'); }
   }
 
   async function handleDeleteStock(id: string) {
@@ -194,17 +183,19 @@ export default function GroupPage() {
     if (!editingCart) return;
     try {
       await updateCart(editingCart.cart_id, editCartForm);
-      setShowEditCartModal(false);
-      setEditingCart(null);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update cart item');
-    }
+      setShowEditCartModal(false); setEditingCart(null); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to update cart item'); }
   }
 
   async function handleDeleteCart(id: string) {
     try { await deleteCart(id); fetchData(); }
     catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to delete cart item'); }
+  }
+
+  function openAddModal() {
+    if (activeTab === 'transactions') setShowTxModal(true);
+    else if (activeTab === 'stocks') setShowStockModal(true);
+    else if (activeTab === 'cart') setShowCartModal(true);
   }
 
   return (
@@ -217,32 +208,48 @@ export default function GroupPage() {
       {loading && <div className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>}
       {error && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-xl font-bold">Transactions</h2><p className="text-xs text-slate-500">Group income and expenses.</p></div>
-            <button onClick={() => setShowTxModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">+ Add</button>
-          </div>
-          <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-xl font-bold">Stocks</h2><p className="text-xs text-slate-500">Shared inventory items.</p></div>
-            <button onClick={() => setShowStockModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">+ Add</button>
-          </div>
-          <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-xl font-bold">Cart</h2><p className="text-xs text-slate-500">Items to purchase for the group.</p></div>
-            <button onClick={() => setShowCartModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">+ Add</button>
-          </div>
-          <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />
-        </section>
+      {/* Tab bar */}
+      <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
+      {/* Tab content */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold">
+              {activeTab === 'cart' ? 'Cart' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </h2>
+            <p className="text-xs text-slate-500">
+              {activeTab === 'transactions' && 'Group income and expenses.'}
+              {activeTab === 'stocks' && 'Shared inventory items.'}
+              {activeTab === 'cart' && 'Items to purchase for the group.'}
+            </p>
+          </div>
+          <button
+            onClick={openAddModal}
+            className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+          >
+            + Add {activeTab === 'cart' ? 'Item' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1, -1)}
+          </button>
+        </div>
+
+        {activeTab === 'transactions' && <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />}
+        {activeTab === 'stocks' && <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />}
+        {activeTab === 'cart' && <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />}
+      </section>
+
+      {/* Add Modals */}
       {showTxModal && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
@@ -286,6 +293,7 @@ export default function GroupPage() {
         </div>
       )}
 
+      {/* Edit Modals */}
       {showEditTxModal && editingTx && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">

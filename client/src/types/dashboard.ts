@@ -91,3 +91,22 @@ export type ChatMessage = {
 };
 
 export type ChatContext = 'personal' | 'group';
+
+export type Journal = {
+  journal_id: string;
+  user_id: number;
+  date: string;
+  content: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JournalCreate = {
+  user_id: number;
+  date: string;
+  content: string;
+};
+
+export type JournalUpdate = {
+  content: string;
+};

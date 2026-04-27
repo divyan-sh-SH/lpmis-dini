@@ -1,54 +1,164 @@
 import { useRef, useState } from 'react';
 import type { Group, ChatMessage, ChatContext } from '../types/dashboard';
-import { chatWithHomie } from '../lib/moneyApi';
+import { chatWithHomie, createCart } from '../lib/moneyApi';
+
+type MessageWithSuggestions = ChatMessage & { cartSuggestions?: string[] };
 
 type HomieAgentProps = {
   userId: number;
   groups: Group[];
 };
 
+// --- Markdown renderer ---
+
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.startsWith('**') && part.endsWith('**') ? (
+          <strong key={i} className="font-semibold text-slate-900">
+            {part.slice(2, -2)}
+          </strong>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+function renderMarkdown(content: string): React.ReactNode {
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line, i) => {
+        if (line.trim() === '---') {
+          return <hr key={i} className="my-1 border-slate-200" />;
+        }
+        if (/^[-•]\s/.test(line)) {
+          return (
+            <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+              <span className="leading-relaxed">{renderInline(line.replace(/^[-•]\s/, ''))}</span>
+            </div>
+          );
+        }
+        const numMatch = line.match(/^(\d+)\.\s(.*)/);
+        if (numMatch) {
+          return (
+            <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
+              <span className="mt-0.5 w-5 shrink-0 text-right font-bold text-indigo-500 text-xs">
+                {numMatch[1]}.
+              </span>
+              <span className="leading-relaxed">{renderInline(numMatch[2])}</span>
+            </div>
+          );
+        }
+        if (line.trim() === '') {
+          return <div key={i} className="h-1" />;
+        }
+        return (
+          <p key={i} className="text-sm leading-relaxed text-slate-700">
+            {renderInline(line)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+// --- Cart suggestion parser ---
+
+function parseResponse(raw: string): { text: string; suggestions: string[] } {
+  const match = raw.match(/\nCART_SUGGESTIONS:([^\n]+)$/);
+  if (match) {
+    const suggestions = match[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return { text: raw.slice(0, match.index!).trim(), suggestions };
+  }
+  return { text: raw.trim(), suggestions: [] };
+}
+
+// --- Component ---
+
 export default function HomieAgent({ userId, groups }: HomieAgentProps) {
   const [tab, setTab] = useState<ChatContext>('personal');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<MessageWithSuggestions[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  const [addingItems, setAddingItems] = useState<Set<string>>(new Set());
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    setTimeout(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    }, 50);
   };
 
   const isSendDisabled =
-    loading ||
-    !input.trim() ||
-    (tab === 'group' && groups.length > 0 && !selectedGroupId);
+    loading || !input.trim() || (tab === 'group' && groups.length > 0 && !selectedGroupId);
 
   async function sendMessage() {
     if (isSendDisabled) return;
-    const userMessage: ChatMessage = { role: 'user', content: input.trim() };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    const userMessage: MessageWithSuggestions = { role: 'user', content: input.trim() };
+    const historyForApi: ChatMessage[] = [...messages.map((m) => ({ role: m.role, content: m.content })), userMessage];
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setLoading(true);
     scrollToBottom();
     try {
-      const response = await chatWithHomie(
-        updatedMessages,
+      const raw = await chatWithHomie(
+        historyForApi,
         tab,
         userId,
         tab === 'group' ? selectedGroupId || undefined : undefined,
       );
-      setMessages([...updatedMessages, { role: 'assistant', content: response }]);
+      const { text, suggestions } = parseResponse(raw);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: text, cartSuggestions: suggestions },
+      ]);
     } catch {
-      setMessages([
-        ...updatedMessages,
+      setMessages((prev) => [
+        ...prev,
         { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
       ]);
     } finally {
       setLoading(false);
       scrollToBottom();
+    }
+  }
+
+  async function handleAddToCart(itemName: string) {
+    setAddingItems((prev) => new Set(prev).add(itemName));
+    try {
+      await createCart({
+        stock_item: itemName,
+        cost: 0,
+        store_name: '',
+        description: undefined,
+        quantity: undefined,
+        user_id: tab === 'personal' ? userId : undefined,
+        group_id: tab === 'group' && selectedGroupId ? selectedGroupId : undefined,
+      });
+      setAddedItems((prev) => new Set(prev).add(itemName));
+    } catch {
+      // silently fail — user can try again
+    } finally {
+      setAddingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(itemName);
+        return next;
+      });
     }
   }
 
@@ -65,6 +175,7 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
   function clearChat() {
     setMessages([]);
     setInput('');
+    setAddedItems(new Set());
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -88,10 +199,7 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
           </div>
         </div>
         {messages.length > 0 && (
-          <button
-            onClick={clearChat}
-            className="shrink-0 text-xs text-slate-400 hover:text-rose-500 transition"
-          >
+          <button onClick={clearChat} className="shrink-0 text-xs text-slate-400 hover:text-rose-500 transition">
             Clear chat
           </button>
         )}
@@ -125,15 +233,20 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
             >
               <option value="">Select a group...</option>
               {groups.map((g) => (
-                <option key={g.group_id} value={g.group_id}>{g.group_name}</option>
+                <option key={g.group_id} value={g.group_id}>
+                  {g.group_name}
+                </option>
               ))}
             </select>
           )}
         </div>
       )}
 
-      {/* Messages — starts compact, grows to max-h then scrolls */}
-      <div className="mb-4 min-h-[56px] max-h-[400px] overflow-y-auto rounded-2xl bg-slate-50 p-3 space-y-3">
+      {/* Messages */}
+      <div
+        ref={containerRef}
+        className="mb-4 min-h-[56px] max-h-[400px] overflow-y-auto rounded-2xl bg-slate-50 p-3 space-y-4"
+      >
         {messages.length === 0 ? (
           <div className="flex min-h-[40px] items-center justify-center px-4 text-center text-sm text-slate-400">
             Ask me about meals, shopping, or anything household-related!
@@ -141,19 +254,57 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
         ) : (
           messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className="group max-w-[85%]">
+              <div className="group max-w-[88%]">
+                {/* Bubble */}
                 <div
-                  className={`rounded-2xl px-4 py-2.5 text-sm ${
+                  className={`rounded-2xl px-4 py-3 ${
                     msg.role === 'user'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white border border-slate-200 text-slate-800'
+                      ? 'bg-indigo-600 text-white text-sm'
+                      : 'bg-white border border-slate-200 shadow-sm'
                   }`}
                 >
                   {msg.role === 'assistant' && (
-                    <p className="mb-1 text-xs font-semibold text-indigo-600">HomieAgent</p>
+                    <p className="mb-2 text-xs font-semibold text-indigo-500">HomieAgent</p>
                   )}
-                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  {msg.role === 'user' ? (
+                    <p className="leading-relaxed text-sm">{msg.content}</p>
+                  ) : (
+                    renderMarkdown(msg.content)
+                  )}
                 </div>
+
+                {/* Cart suggestion cards */}
+                {msg.role === 'assistant' && msg.cartSuggestions && msg.cartSuggestions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {msg.cartSuggestions.map((item) => {
+                      const added = addedItems.has(item);
+                      const adding = addingItems.has(item);
+                      return (
+                        <div
+                          key={item}
+                          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm"
+                        >
+                          <span className="text-xs font-medium text-slate-700">{item}</span>
+                          <button
+                            onClick={() => handleAddToCart(item)}
+                            disabled={added || adding}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                              added
+                                ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                                : adding
+                                ? 'bg-slate-100 text-slate-400 cursor-wait'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            }`}
+                          >
+                            {added ? '✓ Added' : adding ? 'Adding…' : '+ Cart'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Copy button */}
                 {msg.role === 'assistant' && (
                   <button
                     onClick={() => copyMessage(msg.content, i)}
@@ -166,14 +317,17 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
             </div>
           ))
         )}
+
+        {/* Loading indicator */}
         {loading && (
           <div className="flex justify-start">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-400">
-              Thinking...
+            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:150ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:300ms]" />
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}

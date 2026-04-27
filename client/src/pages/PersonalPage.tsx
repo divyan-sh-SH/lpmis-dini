@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Transactions from '../components/Transactions';
 import Stocks from '../components/Stocks';
 import Carts from '../components/Carts';
+import JournalEditor from '../components/JournalEditor';
 import {
   getUserTransactions,
   getUserStocks,
@@ -18,6 +19,15 @@ import {
   deleteCart,
 } from '../lib/moneyApi';
 import type { Transaction, Stock, CartItem, TransactionCreate, StockCreate, CartItemCreate } from '../types/dashboard';
+
+type DashTab = 'transactions' | 'stocks' | 'cart' | 'journal';
+
+const TABS: { id: DashTab; label: string;}[] = [
+  { id: 'transactions', label: 'Transactions'},
+  { id: 'stocks', label: 'Stocks' },
+  { id: 'cart', label: 'Cart' },
+  { id: 'journal', label: 'Journal'},
+];
 
 const emptyTransaction = (user_id?: number): TransactionCreate => ({
   date: new Date().toISOString().split('T')[0],
@@ -47,6 +57,7 @@ const btnPrimary = 'rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold tex
 
 export default function PersonalPage() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<DashTab>('transactions');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [carts, setCarts] = useState<CartItem[]>([]);
@@ -109,9 +120,7 @@ export default function PersonalPage() {
       setShowTxModal(false);
       setTxForm(emptyTransaction(user.user_id));
       fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add transaction');
-    }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add transaction'); }
   }
 
   async function handleAddStock() {
@@ -121,9 +130,7 @@ export default function PersonalPage() {
       setShowStockModal(false);
       setStockForm(emptyStock(user.user_id));
       fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add stock');
-    }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add stock'); }
   }
 
   async function handleAddCart() {
@@ -133,9 +140,7 @@ export default function PersonalPage() {
       setShowCartModal(false);
       setCartForm(emptyCart(user.user_id));
       fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add cart item');
-    }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add cart item'); }
   }
 
   function openEditTx(tx: Transaction) {
@@ -148,21 +153,13 @@ export default function PersonalPage() {
     if (!editingTx) return;
     try {
       await updateTransaction(editingTx.transaction_id, editTxForm);
-      setShowEditTxModal(false);
-      setEditingTx(null);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update transaction');
-    }
+      setShowEditTxModal(false); setEditingTx(null); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to update transaction'); }
   }
 
   async function handleDeleteTx(id: string) {
-    try {
-      await deleteTransaction(id);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
-    }
+    try { await deleteTransaction(id); fetchData(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to delete transaction'); }
   }
 
   function openEditStock(stock: Stock) {
@@ -175,21 +172,13 @@ export default function PersonalPage() {
     if (!editingStock) return;
     try {
       await updateStock(editingStock.stock_id, editStockForm);
-      setShowEditStockModal(false);
-      setEditingStock(null);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update stock');
-    }
+      setShowEditStockModal(false); setEditingStock(null); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to update stock'); }
   }
 
   async function handleDeleteStock(id: string) {
-    try {
-      await deleteStock(id);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to delete stock');
-    }
+    try { await deleteStock(id); fetchData(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to delete stock'); }
   }
 
   function openEditCart(cart: CartItem) {
@@ -202,78 +191,88 @@ export default function PersonalPage() {
     if (!editingCart) return;
     try {
       await updateCart(editingCart.cart_id, editCartForm);
-      setShowEditCartModal(false);
-      setEditingCart(null);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update cart item');
-    }
+      setShowEditCartModal(false); setEditingCart(null); fetchData();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to update cart item'); }
   }
 
   async function handleDeleteCart(id: string) {
-    try {
-      await deleteCart(id);
-      fetchData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to delete cart item');
-    }
+    try { await deleteCart(id); fetchData(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to delete cart item'); }
+  }
+
+  const addLabel: Record<DashTab, string> = {
+    transactions: '+ Add Transaction',
+    stocks: '+ Add Stock',
+    cart: '+ Add Cart Item',
+    journal: '',
+  };
+
+  function openAddModal() {
+    if (activeTab === 'transactions') setShowTxModal(true);
+    else if (activeTab === 'stocks') setShowStockModal(true);
+    else if (activeTab === 'cart') setShowCartModal(true);
   }
 
   return (
     <div className="w-full">
       <header className="mb-5">
         <h1 className="text-3xl font-bold tracking-tight">MyDash</h1>
-        <p className="text-slate-500 mt-1">Manage your personal transactions, stocks, and carts.</p>
+        <p className="text-slate-500 mt-1">Manage your personal transactions, stocks, cart, and journal.</p>
       </header>
 
       {loading && <div className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>}
       {error && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="space-y-6">
-        {/* Transactions */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Transactions</h2>
-              <p className="text-xs text-slate-500">Track income and expenses.</p>
-            </div>
-            <button onClick={() => setShowTxModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-              + Add
-            </button>
-          </div>
-          <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />
-        </section>
-
-        {/* Stocks */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Stocks</h2>
-              <p className="text-xs text-slate-500">Manage inventory items and quantities.</p>
-            </div>
-            <button onClick={() => setShowStockModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-              + Add
-            </button>
-          </div>
-          <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />
-        </section>
-
-        {/* Carts */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Cart</h2>
-              <p className="text-xs text-slate-500">Keep shopping items organised.</p>
-            </div>
-            <button onClick={() => setShowCartModal(true)} className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-              + Add
-            </button>
-          </div>
-          <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />
-        </section>
+      {/* Tab bar */}
+      <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab.id
+                ? tab.id === 'journal'
+                  ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Add Transaction Modal */}
+      {/* Tab content */}
+      {activeTab === 'journal' ? (
+        user && <JournalEditor userId={user.user_id} />
+      ) : (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold capitalize">
+                {activeTab === 'cart' ? 'Cart' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {activeTab === 'transactions' && 'Track income and expenses.'}
+                {activeTab === 'stocks' && 'Manage inventory items and quantities.'}
+                {activeTab === 'cart' && 'Keep shopping items organised.'}
+              </p>
+            </div>
+            <button
+              onClick={openAddModal}
+              className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+            >
+              {addLabel[activeTab]}
+            </button>
+          </div>
+
+          {activeTab === 'transactions' && <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />}
+          {activeTab === 'stocks' && <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />}
+          {activeTab === 'cart' && <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />}
+        </section>
+      )}
+
+      {/* Add Modals */}
       {showTxModal && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
@@ -289,7 +288,6 @@ export default function PersonalPage() {
         </div>
       )}
 
-      {/* Add Stock Modal */}
       {showStockModal && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
@@ -303,7 +301,6 @@ export default function PersonalPage() {
         </div>
       )}
 
-      {/* Add Cart Modal */}
       {showCartModal && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
@@ -319,7 +316,7 @@ export default function PersonalPage() {
         </div>
       )}
 
-      {/* Edit Transaction Modal */}
+      {/* Edit Modals */}
       {showEditTxModal && editingTx && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
@@ -335,7 +332,6 @@ export default function PersonalPage() {
         </div>
       )}
 
-      {/* Edit Stock Modal */}
       {showEditStockModal && editingStock && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
@@ -349,7 +345,6 @@ export default function PersonalPage() {
         </div>
       )}
 
-      {/* Edit Cart Modal */}
       {showEditCartModal && editingCart && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">

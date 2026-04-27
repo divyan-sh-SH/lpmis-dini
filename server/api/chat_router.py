@@ -65,7 +65,11 @@ Current stocks available:
 Shopping cart:
 {cart_lines}
 
-When users ask about meals or cooking, suggest options based on what's in stock. Be concise, practical, and friendly. Use simple formatting."""
+When users ask about meals or cooking, suggest options based on what's in stock. Be concise, practical, and friendly. Use simple formatting with **bold** for headings/key terms and - for bullet points.
+
+IMPORTANT RULE: If your response mentions items the user should buy or get that are NOT already in their current stocks list above, you MUST append this line at the very end of your response, with no text after it:
+CART_SUGGESTIONS:item1,item2,item3
+Use simple ingredient names only (e.g., Onions,Tomatoes,Salt). Only include items truly missing from their stocks. Omit this line entirely if everything needed is already in stock."""
 
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
