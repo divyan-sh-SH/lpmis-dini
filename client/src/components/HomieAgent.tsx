@@ -548,7 +548,7 @@ export default function HomieAgent({ userId, groups, fullPage = false }: HomieAg
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about meals, spending, or stocks…"
-          className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-indigo-400 focus:bg-white transition disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-base outline-none focus:border-indigo-400 focus:bg-white transition disabled:opacity-50"
           disabled={loading}
         />
         <button
