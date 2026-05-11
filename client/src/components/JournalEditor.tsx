@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Journal } from '../types/dashboard';
 import {
   getJournalEntries,
-  getJournalEntry,
   createJournalEntry,
   updateJournalEntry,
   deleteJournalEntry,
@@ -18,7 +17,6 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

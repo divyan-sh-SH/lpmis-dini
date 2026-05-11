@@ -1,22 +1,49 @@
 import { useRef, useState } from 'react';
-import type { Group, ChatMessage, ChatContext } from '../types/dashboard';
-import { chatWithHomie, createCart } from '../lib/moneyApi';
+import type { Group, ChatMessage, ActionSuggestion } from '../types/dashboard';
+import {
+  chatWithHomie,
+  createCart,
+  createStock,
+  createTransaction,
+  deleteCart,
+  deleteStock,
+  deleteTransaction,
+  updateCart,
+  updateStock,
+  updateTransaction,
+} from '../lib/moneyApi';
+import type { CartItemCreate, StockCreate, TransactionCreate } from '../types/dashboard';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
-import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import AddShoppingCartRoundedIcon from '@mui/icons-material/AddShoppingCartRounded';
-import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
+import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
+import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
+import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 
-type MessageWithSuggestions = ChatMessage & { cartSuggestions?: string[] };
+type CardStatus = 'idle' | 'loading' | 'done' | 'error';
+
+type MessageWithMeta = ChatMessage & {
+  cartSuggestions?: string[];
+  actionSuggestions?: ActionSuggestion[];
+  timestamp?: string;
+};
 
 type HomieAgentProps = {
   userId: number;
   groups: Group[];
+  fullPage?: boolean;
 };
+
+const PROMPT_CHIPS = [
+  "What's in my stock?",
+  'Plan meals for this week',
+  'What did I spend this month?',
+  'Add groceries to cart',
+];
 
 // --- Markdown renderer ---
 
@@ -31,7 +58,7 @@ function renderInline(text: string): React.ReactNode {
           </strong>
         ) : (
           <span key={i}>{part}</span>
-        )
+        ),
       )}
     </>
   );
@@ -42,19 +69,17 @@ function renderMarkdown(content: string): React.ReactNode {
   return (
     <div className="space-y-1.5">
       {lines.map((line, i) => {
-        if (line.trim() === '---') {
+        if (line.trim() === '---')
           return <hr key={i} className="my-1 border-slate-200" />;
-        }
-        if (/^[-•]\s/.test(line)) {
+        if (/^[-•]\s/.test(line))
           return (
             <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
               <span className="leading-relaxed">{renderInline(line.replace(/^[-•]\s/, ''))}</span>
             </div>
           );
-        }
         const numMatch = line.match(/^(\d+)\.\s(.*)/);
-        if (numMatch) {
+        if (numMatch)
           return (
             <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
               <span className="mt-0.5 w-5 shrink-0 text-right font-bold text-indigo-500 text-xs">
@@ -63,7 +88,6 @@ function renderMarkdown(content: string): React.ReactNode {
               <span className="leading-relaxed">{renderInline(numMatch[2])}</span>
             </div>
           );
-        }
         if (line.trim() === '') return <div key={i} className="h-1" />;
         return (
           <p key={i} className="text-sm leading-relaxed text-slate-700">
@@ -75,23 +99,94 @@ function renderMarkdown(content: string): React.ReactNode {
   );
 }
 
-// --- Cart suggestion parser ---
+// --- Entity color config ---
 
-function parseResponse(raw: string): { text: string; suggestions: string[] } {
-  const match = raw.match(/\nCART_SUGGESTIONS:([^\n]+)$/);
-  if (match) {
-    const suggestions = match[1].split(',').map((s) => s.trim()).filter(Boolean);
-    return { text: raw.slice(0, match.index!).trim(), suggestions };
+const entityConfig: Record<
+  'transaction' | 'stock' | 'cart',
+  { border: string; bg: string; btn: string; icon: React.ReactNode }
+> = {
+  transaction: {
+    border: 'border-blue-200',
+    bg: 'bg-blue-50',
+    btn: 'bg-blue-600 hover:bg-blue-700 text-white',
+    icon: <SwapVertRoundedIcon sx={{ fontSize: 15 }} className="text-blue-600" />,
+  },
+  stock: {
+    border: 'border-emerald-200',
+    bg: 'bg-emerald-50',
+    btn: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    icon: <InventoryRoundedIcon sx={{ fontSize: 15 }} className="text-emerald-600" />,
+  },
+  cart: {
+    border: 'border-amber-200',
+    bg: 'bg-amber-50',
+    btn: 'bg-amber-500 hover:bg-amber-600 text-white',
+    icon: <ShoppingCartRoundedIcon sx={{ fontSize: 15 }} className="text-amber-500" />,
+  },
+};
+
+// --- Action card ---
+
+function ActionCard({
+  card,
+  onAction,
+}: {
+  card: ActionSuggestion;
+  onAction: (card: ActionSuggestion) => Promise<void>;
+}) {
+  const [status, setStatus] = useState<CardStatus>('idle');
+  const cfg = entityConfig[card.entity] ?? entityConfig.cart;
+
+  const actionLabel =
+    card.type === 'add' ? 'Add' : card.type === 'remove' ? 'Remove' : 'Update';
+
+  async function handle() {
+    if (status !== 'idle' && status !== 'error') return;
+    setStatus('loading');
+    try {
+      await onAction(card);
+      setStatus('done');
+    } catch {
+      setStatus('error');
+    }
   }
-  return { text: raw.trim(), suggestions: [] };
+
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm ${cfg.border} ${cfg.bg}`}
+    >
+      {cfg.icon}
+      <span className="flex-1 text-xs font-medium text-slate-700 leading-tight">
+        {card.label}
+      </span>
+      {status === 'done' ? (
+        <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold bg-emerald-100 text-emerald-700">
+          <CheckRoundedIcon sx={{ fontSize: 13 }} /> Done
+        </span>
+      ) : status === 'error' ? (
+        <button
+          onClick={handle}
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold bg-rose-100 text-rose-600 hover:bg-rose-200"
+        >
+          <ErrorOutlineRoundedIcon sx={{ fontSize: 13 }} /> Retry
+        </button>
+      ) : (
+        <button
+          onClick={handle}
+          disabled={status === 'loading'}
+          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${cfg.btn}`}
+        >
+          {status === 'loading' ? '…' : actionLabel}
+        </button>
+      )}
+    </div>
+  );
 }
 
-// --- Component ---
+// --- Main component ---
 
-export default function HomieAgent({ userId, groups }: HomieAgentProps) {
-  const [tab, setTab] = useState<ChatContext>('personal');
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [messages, setMessages] = useState<MessageWithSuggestions[]>([]);
+export default function HomieAgent({ userId, groups, fullPage = false }: HomieAgentProps) {
+  const [messages, setMessages] = useState<MessageWithMeta[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -100,41 +195,57 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
+  function scrollToBottom() {
     setTimeout(() => {
-      if (containerRef.current) {
+      if (containerRef.current)
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
-      }
     }, 50);
-  };
+  }
 
-  const isSendDisabled =
-    loading || !input.trim() || (tab === 'group' && groups.length > 0 && !selectedGroupId);
+  function now(): string {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
-  async function sendMessage() {
-    if (isSendDisabled) return;
-    const userMessage: MessageWithSuggestions = { role: 'user', content: input.trim() };
-    const historyForApi: ChatMessage[] = [...messages.map((m) => ({ role: m.role, content: m.content })), userMessage];
-    setMessages((prev) => [...prev, userMessage]);
+  async function sendMessage(text?: string) {
+    const content = (text ?? input).trim();
+    if (!content || loading) return;
+
+    const userMsg: MessageWithMeta = { role: 'user', content, timestamp: now() };
+    const historyForApi: ChatMessage[] = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      userMsg,
+    ];
+
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     scrollToBottom();
+
+    const available_groups = groups.map((g) => ({
+      group_id: g.group_id,
+      group_name: g.group_name,
+    }));
+
     try {
-      const raw = await chatWithHomie(
-        historyForApi,
-        tab,
-        userId,
-        tab === 'group' ? selectedGroupId || undefined : undefined,
-      );
-      const { text, suggestions } = parseResponse(raw);
+      const agentResp = await chatWithHomie(historyForApi, userId, available_groups);
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: text, cartSuggestions: suggestions },
+        {
+          role: 'assistant',
+          content: agentResp.response,
+          cartSuggestions: agentResp.cart_suggestions,
+          actionSuggestions: agentResp.action_suggestions,
+          timestamp: now(),
+        },
       ]);
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
+        {
+          role: 'assistant',
+          content: 'Sorry, something went wrong. Please try again.',
+          timestamp: now(),
+        },
       ]);
     } finally {
       setLoading(false);
@@ -142,17 +253,14 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
     }
   }
 
-  async function handleAddToCart(itemName: string) {
+  async function handleCartAdd(itemName: string) {
     setAddingItems((prev) => new Set(prev).add(itemName));
     try {
       await createCart({
         stock_item: itemName,
         cost: 0,
         store_name: '',
-        description: undefined,
-        quantity: undefined,
-        user_id: tab === 'personal' ? userId : undefined,
-        group_id: tab === 'group' && selectedGroupId ? selectedGroupId : undefined,
+        user_id: userId,
       });
       setAddedItems((prev) => new Set(prev).add(itemName));
     } catch {
@@ -163,6 +271,39 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
         next.delete(itemName);
         return next;
       });
+    }
+  }
+
+  async function handleAction(card: ActionSuggestion): Promise<void> {
+    const data = card.data as Record<string, unknown>;
+
+    if (card.type === 'add') {
+      if (card.entity === 'transaction') {
+        await createTransaction(data as unknown as TransactionCreate);
+      } else if (card.entity === 'stock') {
+        await createStock(data as unknown as StockCreate);
+      } else if (card.entity === 'cart') {
+        await createCart(data as unknown as CartItemCreate);
+      }
+    } else if (card.type === 'remove') {
+      if (card.entity === 'transaction' && data.transaction_id) {
+        await deleteTransaction(data.transaction_id as string);
+      } else if (card.entity === 'stock' && data.stock_id) {
+        await deleteStock(data.stock_id as string);
+      } else if (card.entity === 'cart' && data.cart_id) {
+        await deleteCart(data.cart_id as string);
+      }
+    } else if (card.type === 'update') {
+      if (card.entity === 'transaction' && data.transaction_id) {
+        const { transaction_id, ...rest } = data;
+        await updateTransaction(transaction_id as string, rest as Partial<TransactionCreate>);
+      } else if (card.entity === 'stock' && data.stock_id) {
+        const { stock_id, ...rest } = data;
+        await updateStock(stock_id as string, rest as Partial<StockCreate>);
+      } else if (card.entity === 'cart' && data.cart_id) {
+        const { cart_id, ...rest } = data;
+        await updateCart(cart_id as string, rest as Partial<CartItemCreate>);
+      }
     }
   }
 
@@ -180,6 +321,7 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
     setMessages([]);
     setInput('');
     setAddedItems(new Set());
+    setAddingItems(new Set());
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -189,142 +331,192 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
     }
   }
 
+  const isEmpty = messages.length === 0;
+
+  const outerCls = fullPage
+    ? 'flex flex-col flex-1 min-h-0 bg-white'
+    : 'rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden';
+
+  const messagesCls = fullPage
+    ? 'flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-4 bg-slate-50'
+    : 'min-h-[80px] max-h-[420px] overflow-y-auto px-3 py-3 space-y-4 bg-slate-50';
+
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-            <SmartToyRoundedIcon sx={{ fontSize: 20 }} />
+    <section className={outerCls}>
+      {/* Header — hidden in fullPage mode (ChatPage provides its own header) */}
+      {!fullPage && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
+              <SmartToyRoundedIcon sx={{ fontSize: 16 }} className="text-white" />
+            </div>
+            <span className="text-sm font-semibold text-slate-800">HomieAgent</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">
+              AI
+            </span>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 leading-tight">HomieAgent</h2>
-            <p className="text-xs text-slate-500">Your AI household assistant</p>
-          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              title="Clear chat"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500 transition"
+            >
+              <DeleteSweepRoundedIcon sx={{ fontSize: 16 }} />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          )}
         </div>
-        {messages.length > 0 && (
+      )}
+
+      {/* Clear button for fullPage mode */}
+      {fullPage && messages.length > 0 && (
+        <div className="flex justify-end px-4 py-2 border-b border-slate-100 shrink-0">
           <button
             onClick={clearChat}
-            title="Clear chat"
-            className="flex items-center gap-1 shrink-0 text-xs text-slate-400 hover:text-rose-500 transition"
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500 transition"
           >
-            <DeleteSweepRoundedIcon sx={{ fontSize: 18 }} />
-            <span>Clear</span>
+            <DeleteSweepRoundedIcon sx={{ fontSize: 15 }} />
+            Clear chat
           </button>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
-        {(['personal', 'group'] as ChatContext[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${
-              tab === t ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {t === 'personal' ? 'MyDash' : 'MyHomeDash'}
-          </button>
-        ))}
-      </div>
-
-      {/* Group selector */}
-      {tab === 'group' && (
-        <div className="mb-4">
-          {groups.length === 0 ? (
-            <p className="py-2 text-center text-sm text-slate-500">You have no groups yet.</p>
-          ) : (
-            <select
-              value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-indigo-400 transition"
-            >
-              <option value="">Select a group...</option>
-              {groups.map((g) => (
-                <option key={g.group_id} value={g.group_id}>{g.group_name}</option>
-              ))}
-            </select>
-          )}
         </div>
       )}
 
       {/* Messages */}
       <div
         ref={containerRef}
-        className="mb-4 min-h-[56px] max-h-[400px] overflow-y-auto rounded-2xl bg-slate-50 p-3 space-y-4"
+        className={messagesCls}
       >
-        {messages.length === 0 ? (
-          <div className="flex min-h-[40px] items-center justify-center px-4 text-center text-sm text-slate-400">
-            Ask me about meals, shopping, or anything household-related!
+        {isEmpty ? (
+          <div className="flex flex-col items-center gap-4 py-4">
+            <p className="text-sm text-slate-400 text-center">
+              Ask me about meals, spending, or anything household-related!
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {PROMPT_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => sendMessage(chip)}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm hover:border-indigo-300 hover:text-indigo-700 transition"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className="group max-w-[88%]">
+            <div
+              key={i}
+              className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              {/* Avatar for assistant */}
+              {msg.role === 'assistant' && (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 mt-0.5">
+                  <SmartToyRoundedIcon sx={{ fontSize: 14 }} className="text-white" />
+                </div>
+              )}
+
+              <div className="group max-w-[85%] flex flex-col gap-1.5">
                 {/* Bubble */}
                 <div
                   className={`rounded-2xl px-4 py-3 ${
                     msg.role === 'user'
-                      ? 'bg-indigo-600 text-white text-sm'
-                      : 'bg-white border border-slate-200 shadow-sm'
+                      ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-br-sm'
+                      : 'bg-white border border-slate-200 shadow-sm rounded-tl-sm'
                   }`}
                 >
-                  {msg.role === 'assistant' && (
-                    <p className="mb-2 text-xs font-semibold text-indigo-500">HomieAgent</p>
-                  )}
                   {msg.role === 'user' ? (
-                    <p className="leading-relaxed text-sm">{msg.content}</p>
+                    <p className="text-sm leading-relaxed">{msg.content}</p>
                   ) : (
                     renderMarkdown(msg.content)
                   )}
                 </div>
 
-                {/* Cart suggestion cards */}
-                {msg.role === 'assistant' && msg.cartSuggestions && msg.cartSuggestions.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {msg.cartSuggestions.map((item) => {
-                      const added = addedItems.has(item);
-                      const adding = addingItems.has(item);
-                      return (
-                        <div
-                          key={item}
-                          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm"
-                        >
-                          <span className="text-xs font-medium text-slate-700">{item}</span>
-                          <button
-                            onClick={() => handleAddToCart(item)}
-                            disabled={added || adding}
-                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                              added
-                                ? 'bg-emerald-100 text-emerald-700 cursor-default'
-                                : adding
-                                ? 'bg-slate-100 text-slate-400 cursor-wait'
-                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                            }`}
-                          >
-                            {added ? (
-                              <><CheckRoundedIcon sx={{ fontSize: 13 }} /> Added</>
-                            ) : (
-                              <><AddShoppingCartRoundedIcon sx={{ fontSize: 13 }} /> {adding ? 'Adding…' : 'Cart'}</>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                {/* Timestamp */}
+                {msg.timestamp && (
+                  <p
+                    className={`text-[10px] text-slate-400 px-1 ${
+                      msg.role === 'user' ? 'text-right' : 'text-left'
+                    }`}
+                  >
+                    {msg.timestamp}
+                  </p>
                 )}
+
+                {/* Action suggestion cards */}
+                {msg.role === 'assistant' &&
+                  msg.actionSuggestions &&
+                  msg.actionSuggestions.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      {msg.actionSuggestions.map((card, ci) => {
+                        return (
+                          <ActionCard
+                            key={`action-${i}-${ci}`}
+                            card={card}
+                            onAction={handleAction}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+
+                {/* Cart suggestion cards */}
+                {msg.role === 'assistant' &&
+                  msg.cartSuggestions &&
+                  msg.cartSuggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {msg.cartSuggestions.map((item) => {
+                        const added = addedItems.has(item);
+                        const adding = addingItems.has(item);
+                        return (
+                          <div
+                            key={item}
+                            className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 shadow-sm"
+                          >
+                            <ShoppingCartRoundedIcon sx={{ fontSize: 13 }} className="text-amber-500" />
+                            <span className="text-xs font-medium text-slate-700">{item}</span>
+                            <button
+                              onClick={() => handleCartAdd(item)}
+                              disabled={added || adding}
+                              className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-semibold transition ${
+                                added
+                                  ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                                  : adding
+                                    ? 'bg-slate-100 text-slate-400 cursor-wait'
+                                    : 'bg-amber-500 text-white hover:bg-amber-600'
+                              }`}
+                            >
+                              {added ? (
+                                <>
+                                  <CheckRoundedIcon sx={{ fontSize: 11 }} /> Added
+                                </>
+                              ) : (
+                                <>
+                                  <AddShoppingCartRoundedIcon sx={{ fontSize: 11 }} />{' '}
+                                  {adding ? '…' : 'Add'}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                 {/* Copy button */}
                 {msg.role === 'assistant' && (
                   <button
                     onClick={() => copyMessage(msg.content, i)}
-                    className="mt-1 flex items-center gap-1 text-xs text-slate-400 opacity-0 transition hover:text-slate-600 group-hover:opacity-100"
+                    className="flex items-center gap-1 self-start text-xs text-slate-400 opacity-0 transition hover:text-slate-600 group-hover:opacity-100"
                   >
                     {copiedIdx === i ? (
-                      <><CheckRoundedIcon sx={{ fontSize: 13 }} /> Copied!</>
+                      <>
+                        <CheckRoundedIcon sx={{ fontSize: 12 }} /> Copied!
+                      </>
                     ) : (
-                      <><ContentCopyRoundedIcon sx={{ fontSize: 13 }} /> Copy</>
+                      <>
+                        <ContentCopyRoundedIcon sx={{ fontSize: 12 }} /> Copy
+                      </>
                     )}
                   </button>
                 )}
@@ -335,8 +527,11 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
 
         {/* Loading indicator */}
         {loading && (
-          <div className="flex justify-start">
-            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex items-start gap-2 justify-start">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
+              <SmartToyRoundedIcon sx={{ fontSize: 14 }} className="text-white" />
+            </div>
+            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm rounded-tl-sm">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:150ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:300ms]" />
@@ -345,32 +540,24 @@ export default function HomieAgent({ userId, groups }: HomieAgentProps) {
         )}
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2">
+      {/* Input area */}
+      <div className="flex gap-2 border-t border-slate-100 px-3 py-3 bg-white">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about meals, stocks, or anything..."
-          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-indigo-400 transition disabled:opacity-50"
+          placeholder="Ask about meals, spending, or stocks…"
+          className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-indigo-400 focus:bg-white transition disabled:opacity-50"
           disabled={loading}
         />
         <button
-          onClick={sendMessage}
-          disabled={isSendDisabled}
-          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40"
+          onClick={() => sendMessage()}
+          disabled={loading || !input.trim()}
+          className="shrink-0 flex items-center justify-center rounded-full bg-indigo-600 w-9 h-9 text-white transition hover:bg-indigo-700 disabled:opacity-40"
         >
           <SendRoundedIcon sx={{ fontSize: 16 }} />
-          Send
         </button>
-      </div>
-
-      {/* Rewrite hint used in suggestions panel */}
-      <div className="hidden">
-        <AutoFixHighRoundedIcon />
-        <LightbulbRoundedIcon />
-        <CloseRoundedIcon />
       </div>
     </section>
   );

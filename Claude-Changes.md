@@ -4,6 +4,91 @@ All modifications made by Claude are logged here, newest first.
 
 ---
 
+## 2026-05-12 — Chat Page + HomePage Redesign
+
+### Changes
+
+**`client/src/pages/ChatPage.tsx`** (new):
+- Dedicated full-page chat route at `/chat`
+- Header with back button, HomieAgent avatar + title + subtitle
+- Fetches groups for the current user, passes to `HomieAgent` with `fullPage` prop
+
+**`client/src/App.tsx`**:
+- Added `/chat` route pointing to `ChatPage`
+- Changed routes wrapper div from `flex-1` to `flex flex-col flex-1` so ChatPage can fill the viewport height
+
+**`client/src/components/HomieAgent.tsx`**:
+- Added `fullPage?: boolean` prop (default `false`)
+- In `fullPage` mode: no outer card border, no header (ChatPage provides it), messages area is `flex-1 min-h-0 overflow-y-auto`, component fills parent height via `flex flex-col flex-1 min-h-0`
+- Added a compact "Clear chat" row when in `fullPage` mode and messages exist
+
+**`client/src/pages/HomePage.tsx`** (rewritten):
+- Removed `HomieAgent` component from the home page
+- **Hero card**: gradient (indigo→blue→purple) with greeting, date, user initials avatar, net balance for current period with trend badge
+- **Quick nav row**: 3 horizontally scrollable pill links — MyDash (blue), MyHomeDash (indigo), Journal (violet)
+- **MyDash Overview**: improved section header with subtitle, stat cards now have gradient backgrounds with icon badges (TrendingUp, North arrow, South arrow), `hover:-translate-y-0.5` micro-animation on group cards
+- **My HomeDash**: group initials avatars now cycle through 6 gradient colors by index, improved empty state with icon and CTA button
+- **Floating Chat FAB**: fixed bottom-right `Link to="/chat"`, gradient indigo-purple, shadow glow, hover scale + shadow enhancement
+
+---
+
+## 2026-04-27 — HomieAgent LangGraph Agentic Upgrade
+
+### Changes
+
+**`server/agent/` (new folder):**
+- `state.py` — `AgentState` TypedDict + `Intent` constants
+- `prompts.py` — all LLM prompt templates: classify system, generate response template, general response system, action protocol
+- `nodes.py` — all graph node functions: `classify_intent` (structured output via `ChatAnthropic.with_structured_output`), `resolve_context`, `fetch_data`, `generate_response`, `build_action_cards`, `ask_clarification`, `general_response`; DB session injected via `config["configurable"]["db"]`
+- `graph.py` — LangGraph `StateGraph` wiring with conditional routing; exports `homie_graph`
+- `__init__.py` — exports `homie_graph`
+
+**`server/api/chat_router.py`** (rewritten):
+- New request: `{messages, user_id, available_groups}` — removed `context` and `group_id` fields
+- Calls `homie_graph.invoke()` with DB session in RunnableConfig
+- New response: `{response, cart_suggestions, action_suggestions, clarification, inferred_context, inferred_group_id}`
+
+**`server/docs/agent_enhancement.md`** (new):
+- Deferred options for Q3 (streaming), Q4 (stateful checkpointing), Q5 (tool-call approach)
+
+**`server/pyproject.toml`** and **`server/requirements.txt`**:
+- Added `langgraph>=1.0.0`, `langchain-anthropic>=1.0.0`; bumped `anthropic` to `>=0.101.0`
+
+**`client/src/types/dashboard.ts`**:
+- Added `ActionSuggestion` and `AgentChatResponse` types; removed `ChatContext`
+
+**`client/src/lib/moneyApi.ts`**:
+- Updated `chatWithHomie(messages, user_id, available_groups)` — new signature, returns `AgentChatResponse`
+
+**`client/src/components/HomieAgent.tsx`** (rewritten):
+- Removed tab toggle (MyDash/MyHomeDash) and group `<select>` dropdown
+- Agent infers context from natural language
+- New chat UI: gradient header with avatar, left-aligned assistant bubbles with avatar, user bubbles in blue-indigo gradient, timestamps under each bubble
+- Empty state: 4 suggested prompt chips ("What's in my stock?", "Plan meals for this week", etc.)
+- Action suggestion cards rendered below assistant bubbles: per-entity color coding (blue=transaction, emerald=stock, amber=cart), idle/loading/done/error states
+- Cart suggestion chips with amber accent
+- Loading state includes avatar bubble matching design
+
+**`server/CLAUDE.md`** and **`client/CLAUDE.md`**:
+- Updated with new agent architecture, file structure, and API contract
+
+---
+
+## 2026-05-11 — Redesigned Add/Edit Modals (Transactions, Stocks, Cart)
+
+### Changes
+
+**`client/src/pages/PersonalPage.tsx`** and **`client/src/pages/GroupPage.tsx`**:
+
+- **Polished modal design**: gradient accent bar at top (blue for transactions, emerald for stocks, amber for cart), icon + title header, X close button
+- **Multi-entry support**: Add modals stay open after saving — form resets, "Added! Fill another or tap Done." banner appears for 2.5 s, user taps "Done" to close
+- **Income/Expense toggle**: replaced `<select>` dropdown with two pill toggle buttons (emerald = income, rose = expense)
+- **Cart modal**: Store and Cost fields side-by-side in one row to reduce scrolling
+- **Mobile-first**: modal slides up from bottom on mobile (`items-end`), centers on desktop (`sm:items-center`)
+- **Better inputs**: labels above fields (`uppercase tracking-wide text-xs`), cleaner `rounded-xl` inputs with focus ring
+
+---
+
 ## 2026-04-27 — Replace all emoji icons with MUI icons
 
 ### Changes

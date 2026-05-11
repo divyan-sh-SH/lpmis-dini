@@ -90,7 +90,21 @@ export type ChatMessage = {
   content: string;
 };
 
-export type ChatContext = 'personal' | 'group';
+export type ActionSuggestion = {
+  type: 'add' | 'update' | 'remove';
+  entity: 'transaction' | 'stock' | 'cart';
+  label: string;
+  data: Record<string, unknown>;
+};
+
+export type AgentChatResponse = {
+  response: string;
+  cart_suggestions: string[];
+  action_suggestions: ActionSuggestion[];
+  clarification: string | null;
+  inferred_context?: string;
+  inferred_group_id?: string;
+};
 
 export type Journal = {
   journal_id: string;

@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from typing import Optional
-from uuid import UUID
 
 from db.session import get_db
-from models.db_models import Stock, Cart
-from anthropic_chat import chat_completion
+from agent.graph import homie_graph
+from agent.state import AgentState
 
 chat_router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -16,65 +15,67 @@ class ChatMessage(BaseModel):
     content: str
 
 
+class AvailableGroup(BaseModel):
+    group_id: str
+    group_name: str
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
-    context: str  # 'personal' or 'group'
-    user_id: Optional[int] = None
-    group_id: Optional[str] = None
+    user_id: int
+    available_groups: list[AvailableGroup] = []
 
 
 class ChatResponse(BaseModel):
     response: str
+    cart_suggestions: list[str] = []
+    action_suggestions: list[dict] = []
+    clarification: Optional[str] = None
+    inferred_context: Optional[str] = None
+    inferred_group_id: Optional[str] = None
 
 
 @chat_router.post("", response_model=ChatResponse)
 async def chat_with_homie(request: ChatRequest, db: Session = Depends(get_db)):
-    stocks = []
-    cart_items = []
-
-    if request.context == "personal" and request.user_id:
-        stocks = db.query(Stock).filter(Stock.user_id == request.user_id).all()
-        cart_items = db.query(Cart).filter(Cart.user_id == request.user_id).all()
-    elif request.context == "group" and request.group_id:
-        try:
-            group_uuid = UUID(request.group_id)
-            stocks = db.query(Stock).filter(Stock.group_id == group_uuid).all()
-            cart_items = db.query(Cart).filter(Cart.group_id == group_uuid).all()
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid group_id format")
-
-    context_label = "personal household" if request.context == "personal" else "group/shared household"
-    stock_lines = (
-        "\n".join([f"- {s.stock_item}: {s.quantity or 'some'}" for s in stocks])
-        if stocks
-        else "No stocks recorded yet."
-    )
-    cart_lines = (
-        "\n".join([f"- {c.stock_item} (Rs. {c.cost})" for c in cart_items])
-        if cart_items
-        else "No items in cart."
-    )
-
-    system = f"""You are HomieAgent, a friendly AI assistant for the HomeDash household management app. Help users with meal planning, grocery shopping, and home management.
-
-Context: {context_label}
-
-Current stocks available:
-{stock_lines}
-
-Shopping cart:
-{cart_lines}
-
-When users ask about meals or cooking, suggest options based on what's in stock. Be concise, practical, and friendly. Use simple formatting with **bold** for headings/key terms and - for bullet points.
-
-IMPORTANT RULE: If your response mentions items the user should buy or get that are NOT already in their current stocks list above, you MUST append this line at the very end of your response, with no text after it:
-CART_SUGGESTIONS:item1,item2,item3
-Use simple ingredient names only (e.g., Onions,Tomatoes,Salt). Only include items truly missing from their stocks. Omit this line entirely if everything needed is already in stock."""
-
-    messages = [{"role": m.role, "content": m.content} for m in request.messages]
+    initial_state: AgentState = {
+        "messages": [{"role": m.role, "content": m.content} for m in request.messages],
+        "user_id": request.user_id,
+        "available_groups": [
+            {"group_id": g.group_id, "group_name": g.group_name}
+            for g in request.available_groups
+        ],
+        # Fields resolved during execution (initialised as None)
+        "inferred_context": None,
+        "inferred_group_id": None,
+        "inferred_group_name": None,
+        "intent": None,
+        "entity": None,
+        "fetched_data": None,
+        # Output defaults
+        "response": "",
+        "action_suggestions": [],
+        "cart_suggestions": [],
+        "needs_clarification": False,
+        "clarification_reason": None,
+    }
 
     try:
-        response_text = chat_completion(messages, system=system)
-        return ChatResponse(response=response_text)
+        result = homie_graph.invoke(
+            initial_state,
+            config={"configurable": {"db": db}},
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+    return ChatResponse(
+        response=result.get("response", ""),
+        cart_suggestions=result.get("cart_suggestions") or [],
+        action_suggestions=result.get("action_suggestions") or [],
+        clarification=(
+            result.get("clarification_reason")
+            if result.get("needs_clarification")
+            else None
+        ),
+        inferred_context=result.get("inferred_context"),
+        inferred_group_id=result.get("inferred_group_id"),
+    )

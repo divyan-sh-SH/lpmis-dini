@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import PersonalPage from './pages/PersonalPage';
 import GroupsPage from './pages/GroupsPage';
 import GroupPage from './pages/GroupPage';
+import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 
 function AppContent() {
@@ -22,12 +23,13 @@ function AppContent() {
           // --- AUTHENTICATED STATE: Show the main app ---
           <div className="flex flex-1 flex-col">
             <NavBar />
-            <div className="pt-5 flex-1">
+            <div className="pt-5 flex flex-col flex-1">
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/personal" element={<PersonalPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:groupId" element={<GroupPage />} />
+                <Route path="/chat" element={<ChatPage />} />
                 {/* Catch-all: If they type a random URL, send them Home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

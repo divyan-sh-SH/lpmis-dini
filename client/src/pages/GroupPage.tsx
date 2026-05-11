@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
 import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import Transactions from '../components/Transactions';
 import Stocks from '../components/Stocks';
 import Carts from '../components/Carts';
@@ -52,9 +54,8 @@ const emptyCart = (group_id?: string): CartItemCreate => ({
   group_id,
 });
 
-const inputCls = 'mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500';
-const btnCancel = 'rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200';
-const btnPrimary = 'rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700';
+const fieldCls = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white transition';
+const fieldLabel = 'block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5';
 
 export default function GroupPage() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -83,6 +84,11 @@ export default function GroupPage() {
   const [editTxForm, setEditTxForm] = useState<TransactionCreate>(emptyTransaction());
   const [editStockForm, setEditStockForm] = useState<StockCreate>(emptyStock());
   const [editCartForm, setEditCartForm] = useState<CartItemCreate>(emptyCart());
+
+  // Multi-entry success flash state
+  const [txAdded, setTxAdded] = useState(false);
+  const [stockAdded, setStockAdded] = useState(false);
+  const [cartAdded, setCartAdded] = useState(false);
 
   useEffect(() => {
     if (!groupId) { fetchedRef.current = null; return; }
@@ -118,7 +124,10 @@ export default function GroupPage() {
     if (!groupId) return;
     try {
       await createTransaction({ ...txForm, group_id: groupId });
-      setShowTxModal(false); setTxForm(emptyTransaction(groupId)); fetchData();
+      setTxForm(emptyTransaction(groupId));
+      setTxAdded(true);
+      setTimeout(() => setTxAdded(false), 2500);
+      fetchData();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add transaction'); }
   }
 
@@ -126,7 +135,10 @@ export default function GroupPage() {
     if (!groupId) return;
     try {
       await createStock({ ...stockForm, group_id: groupId });
-      setShowStockModal(false); setStockForm(emptyStock(groupId)); fetchData();
+      setStockForm(emptyStock(groupId));
+      setStockAdded(true);
+      setTimeout(() => setStockAdded(false), 2500);
+      fetchData();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add stock'); }
   }
 
@@ -134,7 +146,10 @@ export default function GroupPage() {
     if (!groupId) return;
     try {
       await createCart({ ...cartForm, group_id: groupId });
-      setShowCartModal(false); setCartForm(emptyCart(groupId)); fetchData();
+      setCartForm(emptyCart(groupId));
+      setCartAdded(true);
+      setTimeout(() => setCartAdded(false), 2500);
+      fetchData();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to add cart item'); }
   }
 
@@ -196,9 +211,9 @@ export default function GroupPage() {
   }
 
   function openAddModal() {
-    if (activeTab === 'transactions') setShowTxModal(true);
-    else if (activeTab === 'stocks') setShowStockModal(true);
-    else if (activeTab === 'cart') setShowCartModal(true);
+    if (activeTab === 'transactions') { setTxAdded(false); setShowTxModal(true); }
+    else if (activeTab === 'stocks') { setStockAdded(false); setShowStockModal(true); }
+    else if (activeTab === 'cart') { setCartAdded(false); setShowCartModal(true); }
   }
 
   return (
@@ -253,89 +268,277 @@ export default function GroupPage() {
         {activeTab === 'cart' && <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />}
       </section>
 
-      {/* Add Modals */}
+      {/* ── Add Transaction Modal ── */}
       {showTxModal && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Add Transaction</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddTx(); }} className="space-y-4">
-              <label className="block text-sm font-medium">Date<input type="date" value={txForm.date} onChange={(e) => setTxForm({ ...txForm, date: e.target.value })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Amount<input type="number" value={txForm.amount} onChange={(e) => setTxForm({ ...txForm, amount: parseFloat(e.target.value) })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Description<input type="text" value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} className={inputCls} /></label>
-              <label className="block text-sm font-medium">Type<select value={txForm.type} onChange={(e) => setTxForm({ ...txForm, type: e.target.value as 'income' | 'expense' })} className={inputCls}><option value="income">Income</option><option value="expense">Expense</option></select></label>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowTxModal(false)} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Add</button></div>
+        <div className="fixed inset-0 z-20 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-blue-400 to-indigo-500" />
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <SwapVertRoundedIcon sx={{ fontSize: 18 }} />
+                </div>
+                <span className="text-base font-bold text-slate-900">Add Transaction</span>
+              </div>
+              <button onClick={() => setShowTxModal(false)} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <CloseRoundedIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            {txAdded && (
+              <div className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2">
+                <CheckCircleRoundedIcon sx={{ fontSize: 15 }} className="text-emerald-500" />
+                <span className="text-sm font-medium text-emerald-700">Added! Fill another or tap Done.</span>
+              </div>
+            )}
+            <form onSubmit={(e) => { e.preventDefault(); handleAddTx(); }} className="px-5 pb-5 space-y-3">
+              <div>
+                <label className={fieldLabel}>Date</label>
+                <input type="date" value={txForm.date} onChange={(e) => setTxForm({ ...txForm, date: e.target.value })} className={fieldCls} required />
+              </div>
+              <div>
+                <label className={fieldLabel}>Amount (Rs.)</label>
+                <input type="number" step="0.01" min="0" value={txForm.amount || ''} onChange={(e) => setTxForm({ ...txForm, amount: parseFloat(e.target.value) || 0 })} className={fieldCls} placeholder="0.00" required />
+              </div>
+              <div>
+                <label className={fieldLabel}>Description</label>
+                <input type="text" value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} className={fieldCls} placeholder="e.g. Salary, Grocery…" />
+              </div>
+              <div>
+                <label className={fieldLabel}>Type</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setTxForm({ ...txForm, type: 'income' })}
+                    className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${txForm.type === 'income' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    Income
+                  </button>
+                  <button type="button" onClick={() => setTxForm({ ...txForm, type: 'expense' })}
+                    className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${txForm.type === 'expense' ? 'bg-rose-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    Expense
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowTxModal(false)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Done</button>
+                <button type="submit" className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">Add</button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* ── Add Stock Modal ── */}
       {showStockModal && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Add Stock</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddStock(); }} className="space-y-4">
-              <label className="block text-sm font-medium">Item Name<input type="text" value={stockForm.stock_item} onChange={(e) => setStockForm({ ...stockForm, stock_item: e.target.value })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Quantity<input type="text" value={stockForm.quantity || ''} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} placeholder="e.g. 500g, 2 kg, 10 pcs" className={inputCls} /></label>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowStockModal(false)} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Add</button></div>
+        <div className="fixed inset-0 z-20 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <InventoryRoundedIcon sx={{ fontSize: 18 }} />
+                </div>
+                <span className="text-base font-bold text-slate-900">Add Stock Item</span>
+              </div>
+              <button onClick={() => setShowStockModal(false)} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <CloseRoundedIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            {stockAdded && (
+              <div className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2">
+                <CheckCircleRoundedIcon sx={{ fontSize: 15 }} className="text-emerald-500" />
+                <span className="text-sm font-medium text-emerald-700">Added! Fill another or tap Done.</span>
+              </div>
+            )}
+            <form onSubmit={(e) => { e.preventDefault(); handleAddStock(); }} className="px-5 pb-5 space-y-3">
+              <div>
+                <label className={fieldLabel}>Item Name</label>
+                <input type="text" value={stockForm.stock_item} onChange={(e) => setStockForm({ ...stockForm, stock_item: e.target.value })} className={fieldCls} placeholder="e.g. Rice, Milk…" required />
+              </div>
+              <div>
+                <label className={fieldLabel}>Quantity</label>
+                <input type="text" value={stockForm.quantity || ''} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} className={fieldCls} placeholder="e.g. 500g, 2 kg, 10 pcs" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowStockModal(false)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Done</button>
+                <button type="submit" className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">Add</button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* ── Add Cart Modal ── */}
       {showCartModal && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Add Cart Item</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddCart(); }} className="space-y-4">
-              <label className="block text-sm font-medium">Item Name<input type="text" value={cartForm.stock_item} onChange={(e) => setCartForm({ ...cartForm, stock_item: e.target.value })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Store<input type="text" value={cartForm.store_name || ''} onChange={(e) => setCartForm({ ...cartForm, store_name: e.target.value })} className={inputCls} /></label>
-              <label className="block text-sm font-medium">Cost<input type="number" value={cartForm.cost} onChange={(e) => setCartForm({ ...cartForm, cost: parseFloat(e.target.value) })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Note<input type="text" value={cartForm.description || ''} onChange={(e) => setCartForm({ ...cartForm, description: e.target.value })} className={inputCls} /></label>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowCartModal(false)} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Add</button></div>
+        <div className="fixed inset-0 z-20 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <ShoppingCartRoundedIcon sx={{ fontSize: 18 }} />
+                </div>
+                <span className="text-base font-bold text-slate-900">Add Cart Item</span>
+              </div>
+              <button onClick={() => setShowCartModal(false)} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <CloseRoundedIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            {cartAdded && (
+              <div className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2">
+                <CheckCircleRoundedIcon sx={{ fontSize: 15 }} className="text-emerald-500" />
+                <span className="text-sm font-medium text-emerald-700">Added! Fill another or tap Done.</span>
+              </div>
+            )}
+            <form onSubmit={(e) => { e.preventDefault(); handleAddCart(); }} className="px-5 pb-5 space-y-3">
+              <div>
+                <label className={fieldLabel}>Item Name</label>
+                <input type="text" value={cartForm.stock_item} onChange={(e) => setCartForm({ ...cartForm, stock_item: e.target.value })} className={fieldCls} placeholder="e.g. Eggs, Bread…" required />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className={fieldLabel}>Store</label>
+                  <input type="text" value={cartForm.store_name || ''} onChange={(e) => setCartForm({ ...cartForm, store_name: e.target.value })} className={fieldCls} placeholder="e.g. DMart" />
+                </div>
+                <div className="w-32">
+                  <label className={fieldLabel}>Cost (Rs.)</label>
+                  <input type="number" step="0.01" min="0" value={cartForm.cost || ''} onChange={(e) => setCartForm({ ...cartForm, cost: parseFloat(e.target.value) || 0 })} className={fieldCls} placeholder="0" required />
+                </div>
+              </div>
+              <div>
+                <label className={fieldLabel}>Note</label>
+                <input type="text" value={cartForm.description || ''} onChange={(e) => setCartForm({ ...cartForm, description: e.target.value })} className={fieldCls} placeholder="Optional note…" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowCartModal(false)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Done</button>
+                <button type="submit" className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition">Add</button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Edit Modals */}
+      {/* ── Edit Transaction Modal ── */}
       {showEditTxModal && editingTx && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Edit Transaction</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdateTx(); }} className="space-y-4">
-              <label className="block text-sm font-medium">Date<input type="date" value={editTxForm.date} onChange={(e) => setEditTxForm({ ...editTxForm, date: e.target.value })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Amount<input type="number" value={editTxForm.amount} onChange={(e) => setEditTxForm({ ...editTxForm, amount: parseFloat(e.target.value) })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Description<input type="text" value={editTxForm.description} onChange={(e) => setEditTxForm({ ...editTxForm, description: e.target.value })} className={inputCls} /></label>
-              <label className="block text-sm font-medium">Type<select value={editTxForm.type} onChange={(e) => setEditTxForm({ ...editTxForm, type: e.target.value as 'income' | 'expense' })} className={inputCls}><option value="income">Income</option><option value="expense">Expense</option></select></label>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setShowEditTxModal(false); setEditingTx(null); }} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Save</button></div>
+        <div className="fixed inset-0 z-20 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-blue-400 to-indigo-500" />
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <SwapVertRoundedIcon sx={{ fontSize: 18 }} />
+                </div>
+                <span className="text-base font-bold text-slate-900">Edit Transaction</span>
+              </div>
+              <button onClick={() => { setShowEditTxModal(false); setEditingTx(null); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <CloseRoundedIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateTx(); }} className="px-5 pb-5 space-y-3">
+              <div>
+                <label className={fieldLabel}>Date</label>
+                <input type="date" value={editTxForm.date} onChange={(e) => setEditTxForm({ ...editTxForm, date: e.target.value })} className={fieldCls} required />
+              </div>
+              <div>
+                <label className={fieldLabel}>Amount (Rs.)</label>
+                <input type="number" step="0.01" min="0" value={editTxForm.amount || ''} onChange={(e) => setEditTxForm({ ...editTxForm, amount: parseFloat(e.target.value) || 0 })} className={fieldCls} required />
+              </div>
+              <div>
+                <label className={fieldLabel}>Description</label>
+                <input type="text" value={editTxForm.description} onChange={(e) => setEditTxForm({ ...editTxForm, description: e.target.value })} className={fieldCls} />
+              </div>
+              <div>
+                <label className={fieldLabel}>Type</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setEditTxForm({ ...editTxForm, type: 'income' })}
+                    className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${editTxForm.type === 'income' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    Income
+                  </button>
+                  <button type="button" onClick={() => setEditTxForm({ ...editTxForm, type: 'expense' })}
+                    className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${editTxForm.type === 'expense' ? 'bg-rose-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    Expense
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { setShowEditTxModal(false); setEditingTx(null); }} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">Save</button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* ── Edit Stock Modal ── */}
       {showEditStockModal && editingStock && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Edit Stock</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdateStock(); }} className="space-y-4">
-              <label className="block text-sm font-medium">Item Name<input type="text" value={editStockForm.stock_item} onChange={(e) => setEditStockForm({ ...editStockForm, stock_item: e.target.value })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Quantity<input type="text" value={editStockForm.quantity || ''} onChange={(e) => setEditStockForm({ ...editStockForm, quantity: e.target.value })} placeholder="e.g. 500g, 2 kg, 10 pcs" className={inputCls} /></label>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setShowEditStockModal(false); setEditingStock(null); }} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Save</button></div>
+        <div className="fixed inset-0 z-20 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <InventoryRoundedIcon sx={{ fontSize: 18 }} />
+                </div>
+                <span className="text-base font-bold text-slate-900">Edit Stock Item</span>
+              </div>
+              <button onClick={() => { setShowEditStockModal(false); setEditingStock(null); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <CloseRoundedIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateStock(); }} className="px-5 pb-5 space-y-3">
+              <div>
+                <label className={fieldLabel}>Item Name</label>
+                <input type="text" value={editStockForm.stock_item} onChange={(e) => setEditStockForm({ ...editStockForm, stock_item: e.target.value })} className={fieldCls} required />
+              </div>
+              <div>
+                <label className={fieldLabel}>Quantity</label>
+                <input type="text" value={editStockForm.quantity || ''} onChange={(e) => setEditStockForm({ ...editStockForm, quantity: e.target.value })} className={fieldCls} placeholder="e.g. 500g, 2 kg, 10 pcs" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { setShowEditStockModal(false); setEditingStock(null); }} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">Save</button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* ── Edit Cart Modal ── */}
       {showEditCartModal && editingCart && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Edit Cart Item</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdateCart(); }} className="space-y-4">
-              <label className="block text-sm font-medium">Item Name<input type="text" value={editCartForm.stock_item} onChange={(e) => setEditCartForm({ ...editCartForm, stock_item: e.target.value })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Store<input type="text" value={editCartForm.store_name || ''} onChange={(e) => setEditCartForm({ ...editCartForm, store_name: e.target.value })} className={inputCls} /></label>
-              <label className="block text-sm font-medium">Cost<input type="number" value={editCartForm.cost} onChange={(e) => setEditCartForm({ ...editCartForm, cost: parseFloat(e.target.value) })} className={inputCls} required /></label>
-              <label className="block text-sm font-medium">Note<input type="text" value={editCartForm.description || ''} onChange={(e) => setEditCartForm({ ...editCartForm, description: e.target.value })} className={inputCls} /></label>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setShowEditCartModal(false); setEditingCart(null); }} className={btnCancel}>Cancel</button><button type="submit" className={btnPrimary}>Save</button></div>
+        <div className="fixed inset-0 z-20 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <ShoppingCartRoundedIcon sx={{ fontSize: 18 }} />
+                </div>
+                <span className="text-base font-bold text-slate-900">Edit Cart Item</span>
+              </div>
+              <button onClick={() => { setShowEditCartModal(false); setEditingCart(null); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <CloseRoundedIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateCart(); }} className="px-5 pb-5 space-y-3">
+              <div>
+                <label className={fieldLabel}>Item Name</label>
+                <input type="text" value={editCartForm.stock_item} onChange={(e) => setEditCartForm({ ...editCartForm, stock_item: e.target.value })} className={fieldCls} required />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className={fieldLabel}>Store</label>
+                  <input type="text" value={editCartForm.store_name || ''} onChange={(e) => setEditCartForm({ ...editCartForm, store_name: e.target.value })} className={fieldCls} />
+                </div>
+                <div className="w-32">
+                  <label className={fieldLabel}>Cost (Rs.)</label>
+                  <input type="number" step="0.01" min="0" value={editCartForm.cost || ''} onChange={(e) => setEditCartForm({ ...editCartForm, cost: parseFloat(e.target.value) || 0 })} className={fieldCls} required />
+                </div>
+              </div>
+              <div>
+                <label className={fieldLabel}>Note</label>
+                <input type="text" value={editCartForm.description || ''} onChange={(e) => setEditCartForm({ ...editCartForm, description: e.target.value })} className={fieldCls} />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { setShowEditCartModal(false); setEditingCart(null); }} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition">Save</button>
+              </div>
             </form>
           </div>
         </div>

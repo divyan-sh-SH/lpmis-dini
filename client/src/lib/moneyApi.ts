@@ -6,7 +6,7 @@ import type {
   User, UserCreate,
   Group, GroupCreate,
   Stock, StockCreate,
-  ChatMessage, ChatContext,
+  ChatMessage, AgentChatResponse,
   Journal, JournalCreate, JournalUpdate,
 } from '../types/dashboard';
 
@@ -296,16 +296,14 @@ export async function rewriteJournal(content: string, instruction: string): Prom
 
 export async function chatWithHomie(
   messages: ChatMessage[],
-  context: ChatContext,
-  user_id?: number,
-  group_id?: string,
-): Promise<string> {
+  user_id: number,
+  available_groups: { group_id: string; group_name: string }[],
+): Promise<AgentChatResponse> {
   const res = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, context, user_id, group_id }),
+    body: JSON.stringify({ messages, user_id, available_groups }),
   });
   if (!res.ok) throw new Error(await extractError(res));
-  const data = await res.json();
-  return data.response;
+  return res.json();
 }
