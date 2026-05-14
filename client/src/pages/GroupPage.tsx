@@ -46,6 +46,7 @@ const emptyTransaction = (group_id?: string): TransactionCreate => ({
 const emptyStock = (group_id?: string): StockCreate => ({
   stock_item: '',
   quantity: '',
+  category: '',
   group_id,
 });
 
@@ -117,20 +118,21 @@ export default function GroupPage() {
     if (!groupId) return;
     setLoading(true);
     setError(null);
-    try {
-      const [txs, stks, crts] = await Promise.all([
-        getGroupTransactions(groupId),
-        getGroupStocks(groupId),
-        getGroupCarts(groupId),
-      ]);
-      setTransactions(txs);
-      setStocks(stks);
-      setCarts(crts);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+    const [txResult, stksResult, crtsResult] = await Promise.allSettled([
+      getGroupTransactions(groupId),
+      getGroupStocks(groupId),
+      getGroupCarts(groupId),
+    ]);
+    if (txResult.status === 'fulfilled') setTransactions(txResult.value);
+    if (stksResult.status === 'fulfilled') setStocks(stksResult.value);
+    if (crtsResult.status === 'fulfilled') setCarts(crtsResult.value);
+    const failed = [
+      txResult.status === 'rejected' && 'transactions',
+      stksResult.status === 'rejected' && 'stocks',
+      crtsResult.status === 'rejected' && 'cart',
+    ].filter(Boolean);
+    if (failed.length) setError(`Failed to load: ${failed.join(', ')}`);
+    setLoading(false);
   }
 
   async function handleAddTx() {
@@ -187,7 +189,7 @@ export default function GroupPage() {
 
   function openEditStock(stock: Stock) {
     setEditingStock(stock);
-    setEditStockForm({ stock_item: stock.stock_item, quantity: stock.quantity || '' });
+    setEditStockForm({ stock_item: stock.stock_item, quantity: stock.quantity || '', category: stock.category || '' });
     setShowEditStockModal(true);
   }
 
@@ -247,12 +249,12 @@ export default function GroupPage() {
       {error && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto rounded-t-xl bg-slate-100">
+      <div className="flex rounded-t-xl bg-slate-100">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium transition ${
               activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -372,9 +374,15 @@ export default function GroupPage() {
                 <label className={fieldLabel}>Item Name</label>
                 <input type="text" value={stockForm.stock_item} onChange={(e) => setStockForm({ ...stockForm, stock_item: e.target.value })} className={fieldCls} placeholder="e.g. Rice, Milk…" required />
               </div>
-              <div>
-                <label className={fieldLabel}>Quantity</label>
-                <input type="text" value={stockForm.quantity || ''} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} className={fieldCls} placeholder="e.g. 500g, 2 kg, 10 pcs" />
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className={fieldLabel}>Quantity</label>
+                  <input type="text" value={stockForm.quantity || ''} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} className={fieldCls} placeholder="e.g. 500g, 2 kg" />
+                </div>
+                <div className="flex-1">
+                  <label className={fieldLabel}>Category <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+                  <input type="text" value={stockForm.category || ''} onChange={(e) => setStockForm({ ...stockForm, category: e.target.value })} className={fieldCls} placeholder="e.g. Dairy, Grains…" />
+                </div>
               </div>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setShowStockModal(false)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Done</button>
@@ -507,9 +515,15 @@ export default function GroupPage() {
                 <label className={fieldLabel}>Item Name</label>
                 <input type="text" value={editStockForm.stock_item} onChange={(e) => setEditStockForm({ ...editStockForm, stock_item: e.target.value })} className={fieldCls} required />
               </div>
-              <div>
-                <label className={fieldLabel}>Quantity</label>
-                <input type="text" value={editStockForm.quantity || ''} onChange={(e) => setEditStockForm({ ...editStockForm, quantity: e.target.value })} className={fieldCls} placeholder="e.g. 500g, 2 kg, 10 pcs" />
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className={fieldLabel}>Quantity</label>
+                  <input type="text" value={editStockForm.quantity || ''} onChange={(e) => setEditStockForm({ ...editStockForm, quantity: e.target.value })} className={fieldCls} placeholder="e.g. 500g, 2 kg" />
+                </div>
+                <div className="flex-1">
+                  <label className={fieldLabel}>Category <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+                  <input type="text" value={editStockForm.category || ''} onChange={(e) => setEditStockForm({ ...editStockForm, category: e.target.value })} className={fieldCls} placeholder="e.g. Dairy, Grains…" />
+                </div>
               </div>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => { setShowEditStockModal(false); setEditingStock(null); }} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">Cancel</button>

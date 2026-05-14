@@ -32,13 +32,13 @@ class Group(Base):
 
 class Stock(Base):
     __tablename__ = "homedash_stock"
-    
+
     stock_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(BigInteger, ForeignKey("homedash_user.user_id"), nullable=True)
     group_id = Column(UUID(as_uuid=True), ForeignKey("homedash_group.group_id"), nullable=True)
     stock_item = Column(String, nullable=False)
     quantity = Column(String, nullable=True)
-    description = Column(Text, nullable=True)
+    category = Column(Text, nullable=True)
     
     __table_args__ = (
         CheckConstraint(

@@ -25,7 +25,7 @@ export type Stock = {
   stock_id: string;
   stock_item: string;
   quantity?: string | null;
-  description?: string | null;
+  category?: string | null;
   user_id?: number;
   group_id?: string;
 };
@@ -61,7 +61,7 @@ export type GroupCreate = {
 export type StockCreate = {
   stock_item: string;
   quantity?: string;
-  description?: string;
+  category?: string;
   user_id?: number;
   group_id?: string;
 };

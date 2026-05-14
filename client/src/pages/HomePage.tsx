@@ -4,9 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import LineChart from '../components/LineChart';
 import { getUserTransactions, getGroupsForUser } from '../lib/moneyApi';
 import type { Transaction, Group } from '../types/dashboard';
-import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import MyDashIcon from '../components/icons/MyDashIcon';
+import MyHomeDashIcon from '../components/icons/MyHomeDashIcon';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
 import NorthRoundedIcon from '@mui/icons-material/NorthRounded';
@@ -143,14 +144,14 @@ export default function HomePage() {
         {[
           {
             to: '/personal',
-            icon: <SwapVertRoundedIcon sx={{ fontSize: 18 }} className="text-blue-600" />,
-            label: 'MyDash',
+            icon: <MyDashIcon size={18} className="text-blue-600" />,
+            label: 'My Dash',
             bg: 'bg-blue-50 border-blue-200 hover:border-blue-400',
           },
           {
             to: '/groups',
-            icon: <HomeRoundedIcon sx={{ fontSize: 18 }} className="text-indigo-600" />,
-            label: 'MyHomeDash',
+            icon: <MyHomeDashIcon size={18} className="text-indigo-600" />,
+            label: 'My HomeDash',
             bg: 'bg-indigo-50 border-indigo-200 hover:border-indigo-400',
           },
         ].map((item) => (

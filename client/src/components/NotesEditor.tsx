@@ -8,7 +8,6 @@ import {
   deleteNote,
   rewriteNote,
 } from '../lib/moneyApi';
-import NoteAltRoundedIcon from '@mui/icons-material/NoteAltRounded';
 import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
@@ -18,6 +17,7 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import NoteAltRoundedIcon from '@mui/icons-material/NoteAltRounded';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,26 +38,29 @@ function formatDateFull(dateStr: string) {
   });
 }
 
-function formatDateBadge(dateStr: string) {
+function formatDateShort(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
-  return {
-    day: d.getDate().toString().padStart(2, '0'),
-    month: d.toLocaleDateString('en-IN', { month: 'short' }).toUpperCase(),
-    year: d.getFullYear(),
-    weekday: d.toLocaleDateString('en-IN', { weekday: 'short' }),
-  };
+  const day = d.getDate();
+  const month = d.toLocaleDateString('en-IN', { month: 'short' });
+  const weekday = d.toLocaleDateString('en-IN', { weekday: 'short' });
+  return `${weekday}, ${day} ${month}`;
 }
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error';
 type EditorTarget = { mode: 'create'; date: string } | { mode: 'edit'; entry: Note };
 
 type NotesEditorProps =
-  | { userId: number; groupId?: never; hideTitle?: boolean }
-  | { groupId: string; userId?: never; hideTitle?: boolean };
+  | { userId: number; groupId?: never; hideTitle?: boolean; onViewChange?: (v: 'list' | 'editor') => void }
+  | { groupId: string; userId?: never; hideTitle?: boolean; onViewChange?: (v: 'list' | 'editor') => void };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function NotesEditor({ userId, groupId, hideTitle = false }: NotesEditorProps) {
+export default function NotesEditor({
+  userId,
+  groupId,
+  hideTitle = false,
+  onViewChange,
+}: NotesEditorProps) {
   const isGroup = !!groupId;
   const [view, setView] = useState<'list' | 'editor'>('list');
 
@@ -112,6 +115,7 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
     setSaveError(null);
     closeRewrite();
     setView('editor');
+    onViewChange?.('editor');
   }
 
   function openEdit(entry: Note) {
@@ -125,10 +129,12 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
     setSaveError(null);
     closeRewrite();
     setView('editor');
+    onViewChange?.('editor');
   }
 
   function goBack() {
     setView('list');
+    onViewChange?.('list');
     loadList();
   }
 
@@ -148,7 +154,6 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
         const updated = await updateNote(noteId, { content });
         setSavedContent(updated.content ?? '');
       } else {
-        // Upsert: check if a note already exists for this date in local list
         const existingForDate = notes.find((n) => n.date === editorDate);
         if (existingForDate) {
           const updated = await updateNote(existingForDate.note_id, { content });
@@ -235,23 +240,21 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
       <div>
         <div className="mb-5 flex items-center justify-between gap-3">
           {hideTitle ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm font-medium text-slate-400">
               {notes.length} {notes.length === 1 ? 'note' : 'notes'}
             </p>
           ) : (
-            <div>
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <NoteAltRoundedIcon sx={{ fontSize: 22 }} className="text-indigo-500" />
+            <div className="flex items-center gap-2">
+              <NoteAltRoundedIcon sx={{ fontSize: 20 }} className="text-indigo-400" />
+              <h2 className="text-lg font-bold text-slate-800">
                 {isGroup ? 'Group Notes' : 'My Notes'}
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {notes.length} {notes.length === 1 ? 'note' : 'notes'}
-              </p>
+              <span className="text-xs text-slate-400">· {notes.length}</span>
             </div>
           )}
           <button
             onClick={openCreate}
-            className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
+            className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700 active:scale-95"
           >
             <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> New Note
           </button>
@@ -264,16 +267,15 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
         {listLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500" />
-            <p className="text-sm text-slate-400">Loading notes…</p>
           </div>
         ) : notes.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-indigo-200 bg-gradient-to-br from-violet-50 to-indigo-50 py-16 text-center">
             <div className="mb-3 text-indigo-300">
-              <NoteAltRoundedIcon sx={{ fontSize: 48 }} />
+              <NoteAltRoundedIcon sx={{ fontSize: 44 }} />
             </div>
             <p className="font-semibold text-slate-700">No notes yet</p>
             <p className="mt-1 text-sm text-slate-400">
-              {isGroup ? 'Add a shared note for your group.' : 'Capture your thoughts, ideas, or tasks.'}
+              {isGroup ? 'Add a shared note for your group.' : 'Capture your thoughts or ideas.'}
             </p>
             <button
               onClick={openCreate}
@@ -283,50 +285,41 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {notes.map((entry) => {
-              const badge = formatDateBadge(entry.date);
+              const dateLabel = formatDateShort(entry.date);
               const words = countWords(entry.content ?? '');
-              const preview = (entry.content ?? '').slice(0, 140).trim();
+              const preview = (entry.content ?? '').slice(0, 180).trim();
               const isCurrentDel = deletingId === entry.note_id;
               const isToday = entry.date === todayStr();
 
               return (
                 <div
                   key={entry.note_id}
-                  className={`group relative flex gap-4 rounded-2xl border bg-white p-4 shadow-sm transition hover:shadow-md ${
+                  className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md ${
                     isCurrentDel
-                      ? 'border-red-200 bg-red-50'
+                      ? 'border-red-200'
                       : isToday
-                      ? 'border-indigo-200 hover:border-indigo-300'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-indigo-200 border-l-4 border-l-indigo-500'
+                      : 'border-slate-200 border-l-4 border-l-slate-200 hover:border-l-slate-400'
                   }`}
                 >
-                  {/* Date badge */}
-                  <div
-                    className={`flex w-14 shrink-0 flex-col items-center justify-center rounded-xl py-3 text-center ${
-                      isToday ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">{badge.month}</span>
-                    <span className="text-2xl font-extrabold leading-none">{badge.day}</span>
-                    <span className="text-[10px] opacity-60">{badge.year}</span>
-                  </div>
-
-                  {/* Content */}
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-500">{badge.weekday}</span>
-                      {isToday && (
-                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600">
-                          Today
-                        </span>
-                      )}
-                      <span className="ml-auto text-xs text-slate-400">{words.toLocaleString()} words</span>
+                  <div className="p-4">
+                    {/* Meta line */}
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-500">{dateLabel}</span>
+                        {isToday && (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600">
+                            Today
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-400">{words.toLocaleString()} words</span>
                     </div>
 
                     {isCurrentDel ? (
-                      <div className="flex items-center gap-3 py-1">
+                      <div className="flex items-center gap-3">
                         <p className="text-sm font-medium text-red-600">Delete this note?</p>
                         <button
                           onClick={() => confirmDelete(entry.note_id)}
@@ -343,29 +336,28 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
                         </button>
                       </div>
                     ) : (
-                      <p className="line-clamp-2 text-sm leading-relaxed text-slate-600">
-                        {preview || <span className="italic text-slate-300">No content written yet.</span>}
-                        {(entry.content ?? '').length > 140 && '…'}
+                      <p className="line-clamp-3 text-sm leading-relaxed text-slate-600">
+                        {preview || <span className="italic text-slate-300">No content yet.</span>}
+                        {(entry.content ?? '').length > 180 && '…'}
                       </p>
                     )}
                   </div>
 
-                  {/* Action buttons */}
+                  {/* Hover action bar */}
                   {!isCurrentDel && (
-                    <div className="flex shrink-0 flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                    <div className="flex border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEdit(entry)}
-                        title="Edit"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-indigo-100 hover:text-indigo-600"
+                        className="flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600"
                       >
-                        <EditRoundedIcon sx={{ fontSize: 16 }} />
+                        <EditRoundedIcon sx={{ fontSize: 14 }} /> Edit
                       </button>
+                      <div className="w-px bg-slate-100" />
                       <button
                         onClick={() => setDeletingId(entry.note_id)}
-                        title="Delete"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-500"
+                        className="flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-500"
                       >
-                        <DeleteRoundedIcon sx={{ fontSize: 16 }} />
+                        <DeleteRoundedIcon sx={{ fontSize: 14 }} /> Delete
                       </button>
                     </div>
                   )}
@@ -399,156 +391,153 @@ export default function NotesEditor({ userId, groupId, hideTitle = false }: Note
 
   return (
     <div>
+      {/* Back link */}
       <button
         onClick={goBack}
-        className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-400 transition hover:text-slate-700"
+        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-400 transition hover:text-slate-700"
       >
-        <ArrowBackRoundedIcon sx={{ fontSize: 20 }} /> All Notes
+        <ArrowBackRoundedIcon sx={{ fontSize: 18 }} /> All Notes
       </button>
 
-      <div className="rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-violet-400 via-indigo-400 to-sky-400" />
-
-        <div className="p-3">
-          {/* Header */}
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                {isCreateMode ? 'New Note' : 'Edit Note'}
-              </h2>
-              {isCreateMode ? (
-                <div className="flex items-center gap-2 mt-1">
-                  <label className="text-xs font-medium text-slate-400">Date:</label>
-                  <input
-                    type="date"
-                    value={editorDate}
-                    max={todayStr()}
-                    onChange={(e) => setEditorDate(e.target.value)}
-                    className="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-indigo-400"
-                  />
-                </div>
-              ) : (
-                <p className="text-xs text-indigo-400 font-medium mt-0.5">{formatDateFull(editorDate)}</p>
-              )}
+      {/* Toolbar */}
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {isCreateMode ? 'New Note' : 'Edit Note'}
+          </p>
+          {isCreateMode ? (
+            <div className="flex items-center gap-2 mt-1">
+              <label className="text-xs font-medium text-slate-400">Date:</label>
+              <input
+                type="date"
+                value={editorDate}
+                max={todayStr()}
+                onChange={(e) => setEditorDate(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-indigo-400"
+              />
             </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                onClick={handleSave}
-                disabled={overLimit || saveStatus === 'saving' || saveStatus === 'idle' || saveStatus === 'saved'}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Save
-              </button>
-              <button
-                onClick={openRewrite}
-                disabled={!content.trim() || showRewritePrompt}
-                className="rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Rewrite
-              </button>
-            </div>
-          </div>
-
-          {/* Rewrite prompt — shown between header and textarea */}
-          {showRewritePrompt && (
-            <div className="mb-4 rounded-2xl border border-violet-200 bg-white/80 p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AutoFixHighRoundedIcon sx={{ fontSize: 18 }} className="text-violet-500" />
-                  <p className="text-sm font-semibold text-slate-700">AI Rewrite</p>
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-600">HomieAgent</span>
-                </div>
-                <button onClick={closeRewrite} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition">
-                  <CloseRoundedIcon sx={{ fontSize: 14 }} /> Cancel
-                </button>
-              </div>
-
-              <p className="mb-2 text-xs text-slate-500">Give a one-line instruction:</p>
-              <div className="flex gap-2">
-                <input
-                  ref={promptRef}
-                  type="text"
-                  value={rewritePrompt}
-                  onChange={(e) => setRewritePrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleRewrite()}
-                  placeholder="e.g. Make it concise · Bullet points · More formal"
-                  className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-violet-400 transition"
-                  disabled={rewriting}
-                />
-                <button
-                  onClick={handleRewrite}
-                  disabled={!rewritePrompt.trim() || rewriting}
-                  className="shrink-0 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:from-violet-600 hover:to-indigo-700 disabled:opacity-40"
-                >
-                  {rewriting ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />
-                      Rewriting…
-                    </span>
-                  ) : 'Rewrite'}
-                </button>
-              </div>
-
-              {rewriteError && <p className="mt-2 text-xs text-red-500">{rewriteError}</p>}
-
-              {suggestion && (
-                <div className="mt-4 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <LightbulbRoundedIcon sx={{ fontSize: 16 }} className="text-amber-500" />
-                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">AI Suggestion</p>
-                  </div>
-                  <p className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                    {suggestion}
-                  </p>
-                  <div className="mt-3 flex justify-end gap-2">
-                    <button
-                      onClick={closeRewrite}
-                      className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                    >
-                      <CloseRoundedIcon sx={{ fontSize: 13 }} /> Reject
-                    </button>
-                    <button
-                      onClick={acceptSuggestion}
-                      className="flex items-center gap-1 rounded-xl bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600"
-                    >
-                      <CheckRoundedIcon sx={{ fontSize: 13 }} /> Accept
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+          ) : (
+            <p className="text-xs text-indigo-400 font-medium mt-0.5">{formatDateFull(editorDate)}</p>
           )}
+        </div>
 
-          {/* Textarea */}
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={
-              isGroup
-                ? `Add a shared note for your group…\n\nCapture decisions, reminders, or anything the group needs to know.`
-                : `What's on your mind?\n\nJot down ideas, tasks, plans, or anything worth remembering…`
-            }
-            rows={18}
-            className="w-full resize-none rounded-xl border border-indigo-100 bg-white px-4 py-3 text-lg leading-8 text-slate-700 placeholder-slate-300 shadow-inner outline-none transition focus:border-indigo-300 focus:shadow-md"
-          />
-
-          {/* Footer */}
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className={`text-sm font-medium ${wordCountColor}`}>
-              {wordCount.toLocaleString()} / {WORD_LIMIT.toLocaleString()} words
-            </span>
-            {saveStatusEl()}
-          </div>
-
-          {overLimit && (
-            <p className="mt-1 text-sm text-red-500">
-              Over the {WORD_LIMIT.toLocaleString()}-word limit. Please shorten your note.
-            </p>
-          )}
-          {saveError && <p className="mt-1 text-sm text-red-500">{saveError}</p>}
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={handleSave}
+            disabled={overLimit || saveStatus === 'saving' || saveStatus === 'idle' || saveStatus === 'saved'}
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Save
+          </button>
+          <button
+            onClick={openRewrite}
+            disabled={!content.trim() || showRewritePrompt}
+            className="rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Rewrite
+          </button>
         </div>
       </div>
+
+      {/* Rewrite panel — sits between toolbar and textarea */}
+      {showRewritePrompt && (
+        <div className="mb-4 rounded-2xl border border-violet-200 bg-violet-50/60 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AutoFixHighRoundedIcon sx={{ fontSize: 18 }} className="text-violet-500" />
+              <p className="text-sm font-semibold text-slate-700">AI Rewrite</p>
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-600">HomieAgent</span>
+            </div>
+            <button onClick={closeRewrite} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition">
+              <CloseRoundedIcon sx={{ fontSize: 14 }} /> Cancel
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              ref={promptRef}
+              type="text"
+              value={rewritePrompt}
+              onChange={(e) => setRewritePrompt(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRewrite()}
+              placeholder="e.g. Make it concise · Bullet points · More formal"
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400 transition"
+              disabled={rewriting}
+            />
+            <button
+              onClick={handleRewrite}
+              disabled={!rewritePrompt.trim() || rewriting}
+              className="shrink-0 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:from-violet-600 hover:to-indigo-700 disabled:opacity-40"
+            >
+              {rewriting ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />
+                  Rewriting…
+                </span>
+              ) : 'Rewrite'}
+            </button>
+          </div>
+
+          {rewriteError && <p className="mt-2 text-xs text-red-500">{rewriteError}</p>}
+
+          {suggestion && (
+            <div className="mt-4 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <LightbulbRoundedIcon sx={{ fontSize: 16 }} className="text-amber-500" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">AI Suggestion</p>
+              </div>
+              <p className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                {suggestion}
+              </p>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  onClick={closeRewrite}
+                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  <CloseRoundedIcon sx={{ fontSize: 13 }} /> Reject
+                </button>
+                <button
+                  onClick={acceptSuggestion}
+                  className="flex items-center gap-1 rounded-xl bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600"
+                >
+                  <CheckRoundedIcon sx={{ fontSize: 13 }} /> Accept
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Divider line */}
+      <div className="h-px bg-gradient-to-r from-violet-200 via-indigo-300 to-sky-200 mb-3 rounded-full" />
+
+      {/* Textarea */}
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder={
+          isGroup
+            ? `Add a shared note for your group…\n\nCapture decisions, reminders, or anything the group needs to know.`
+            : `What's on your mind?\n\nJot down ideas, tasks, plans, or anything worth remembering…`
+        }
+        rows={20}
+        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base leading-8 text-slate-700 placeholder-slate-300 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+      />
+
+      {/* Footer */}
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className={`text-xs font-medium ${wordCountColor}`}>
+          {wordCount.toLocaleString()} / {WORD_LIMIT.toLocaleString()} words
+        </span>
+        {saveStatusEl()}
+      </div>
+
+      {overLimit && (
+        <p className="mt-1 text-sm text-red-500">
+          Over the {WORD_LIMIT.toLocaleString()}-word limit. Please shorten your note.
+        </p>
+      )}
+      {saveError && <p className="mt-1 text-sm text-red-500">{saveError}</p>}
     </div>
   );
 }

@@ -50,7 +50,7 @@ class GroupResponse(BaseModel):
 class StockCreate(BaseModel):
     stock_item: str
     quantity: Optional[str] = None
-    description: Optional[str] = None
+    category: Optional[str] = None
     user_id: Optional[int] = None
     group_id: Optional[UUID] = None
 
@@ -58,7 +58,7 @@ class StockResponse(BaseModel):
     stock_id: UUID
     stock_item: str
     quantity: Optional[str] = None
-    description: Optional[str] = None
+    category: Optional[str] = None
     user_id: Optional[int] = None
     group_id: Optional[UUID] = None
 
@@ -68,7 +68,7 @@ class StockResponse(BaseModel):
 class StockUpdate(BaseModel):
     stock_item: Optional[str] = None
     quantity: Optional[str] = None
-    description: Optional[str] = None
+    category: Optional[str] = None
 
 # --- CART MODELS ---
 class CartItemCreate(BaseModel):

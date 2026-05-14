@@ -4,6 +4,109 @@ All modifications made by Claude are logged here, newest first.
 
 ---
 
+## 2026-05-14 — Stock ORM Fix + Partial Load on API Failure
+
+### Changes
+
+**`server/models/db_models.py`** (updated):
+- Removed the `Column("description", ...)` alias; `Stock.category` now maps directly to the `category` column (migration was applied)
+
+**`client/src/pages/PersonalPage.tsx`** (updated):
+- `fetchData` switched from `Promise.all` to `Promise.allSettled` — each of transactions, stocks, and cart loads independently; if one fails the others still render; error message lists only the failed endpoints (e.g. "Failed to load: stocks")
+
+**`client/src/pages/GroupPage.tsx`** (updated):
+- Same `Promise.allSettled` fix as PersonalPage
+
+---
+
+## 2026-05-14 — Stock Category Field + Category Accordion
+
+### Changes
+
+**`server/models/db_models.py`** (updated):
+- `Stock.description` renamed to `Stock.category`; mapped to the existing DB column `"description"` via `Column("description", ...)` — no migration required to run immediately
+- DB migration to rename the column: `ALTER TABLE homedash_stock RENAME COLUMN description TO category;` (run when convenient, then remove the column name alias)
+
+**`server/models/request_models.py`** (updated):
+- `StockCreate`, `StockResponse`, `StockUpdate`: `description` → `category` field
+
+**`server/api/stock_router.py`** (updated):
+- `create_stock`: passes `category=stock_data.category` instead of `description`
+
+**`server/agent/nodes.py`** (updated):
+- `_format_stocks`: includes `category` field in formatted dict
+- `stock_block` in `generate_response`: appends `[category]` after item/quantity when present
+
+**`client/src/types/dashboard.ts`** (updated):
+- `Stock.description` → `Stock.category`
+- `StockCreate.description` → `StockCreate.category`
+
+**`client/src/components/Stocks.tsx`** (rewritten):
+- Groups stocks by `category`; items with no category fall into "Other" (sorted last)
+- Category accordion: all categories open by default; track `closedCategories` set
+- Per-category color coding (8-color palette, stable per category name)
+- Desktop table + mobile cards preserved inside accordion body
+
+**`client/src/pages/PersonalPage.tsx`** (updated):
+- `emptyStock`: added `category: ''`
+- `openEditStock`: populates `category` from existing stock
+- Add Stock modal: Quantity + Category in a 2-column row; Category is optional
+- Edit Stock modal: same 2-column Quantity + Category layout
+
+**`client/src/pages/GroupPage.tsx`** (updated):
+- Same changes as PersonalPage for stock modals
+
+---
+
+## 2026-05-14 — Icons, NavBar Profile, Transactions Accordion, Notes Redesign, Agent Date Context
+
+### Changes
+
+**`client/src/components/icons/MyDashIcon.tsx`** (new):
+- Custom SVG icon — credit card with chip + upward trend arrow representing personal finance dashboard
+
+**`client/src/components/icons/MyHomeDashIcon.tsx`** (new):
+- Custom SVG icon — house outline with two people silhouettes representing shared household management
+
+**`client/src/components/NavBar.tsx`** (updated):
+- Added `MyDashIcon` and `MyHomeDashIcon` beside "My Dash" / "My HomeDash" nav links
+- Click-outside close for profile dropdown via `useRef<HTMLDivElement>` + `useEffect` + `mousedown` listener
+- Added `showProfile` state and profile modal: gradient header with initials avatar, username, phone number formatted from `user_id`
+- Added `user` from `useAuth()` to support profile display
+
+**`client/src/pages/HomePage.tsx`** (updated):
+- Quick nav now uses `MyDashIcon` and `MyHomeDashIcon` instead of MUI generic icons
+- Updated labels to "My Dash" / "My HomeDash"
+- Removed `SwapVertRoundedIcon` import
+
+**`client/src/components/Transactions.tsx`** (rewritten):
+- Transactions grouped by month (YYYY-MM key), sorted latest-to-oldest within each group
+- Month accordion with per-month income / expense / net summary in header
+- `useState<Set<string>>` for open/closed months; current month open by default
+- Both desktop table and mobile card views preserved inside accordion body
+
+**`client/src/components/NotesEditor.tsx`** (updated):
+- Added `onViewChange?: (v: 'list' | 'editor') => void` prop — fires on openCreate, openEdit, goBack
+- Redesigned list cards: left accent border (indigo for today, slate for others) replacing bulky date badge box; date shown inline as text; hover action bar at bottom of card
+- Simplified empty state and loading spinner
+- Redesigned editor: removed card wrapper; full-width textarea with cleaner toolbar; gradient divider line above textarea
+- Removed `NoteAltRoundedIcon` date badge, `formatDateBadge` helper (no longer needed)
+
+**`client/src/pages/PersonalNotesPage.tsx`** (updated):
+- Added `isEditing` state driven by `onViewChange`; gradient hero banner and back link only visible in list view
+- Hero: violet-to-blue gradient with username and icon
+- In editor view: NotesEditor's own "← All Notes" button is the sole navigation control
+
+**`client/src/pages/GroupNotesPage.tsx`** (updated):
+- Same view-aware pattern as PersonalNotesPage
+- Hero shows group initials in avatar + group name + icon
+- Back link points to `/groups/:groupId` only when in list view
+
+**`server/agent/nodes.py`** (updated):
+- Injected `today = datetime.utcnow().strftime("%A, %d %B %Y")` as a `"Today's date: ..."` prefix into `generate_response`, `general_response`, and `greeting_node` system prompts so the LLM always knows the current date
+
+---
+
 ## 2026-05-14 — Notes Dedicated Pages + Header Buttons
 
 ### Changes

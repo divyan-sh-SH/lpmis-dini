@@ -48,7 +48,7 @@ def create_stock(stock_data: StockCreate, db: Session = Depends(get_db)):
     new_stock = Stock(
         stock_item=stock_data.stock_item,
         quantity=stock_data.quantity,
-        description=stock_data.description,
+        category=stock_data.category,
         user_id=stock_data.user_id,
         group_id=stock_data.group_id
     )

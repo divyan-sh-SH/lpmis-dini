@@ -324,6 +324,7 @@ def _format_stocks(stocks) -> list[dict]:
             "stock_id": str(s.stock_id),
             "item": s.stock_item,
             "quantity": s.quantity or "",
+            "category": s.category or "",
         }
         for s in stocks
     ]
@@ -358,6 +359,7 @@ def _format_notes(notes) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def generate_response(state: AgentState) -> dict:
+    today = datetime.utcnow().strftime("%A, %d %B %Y")
     fetched = state.get("fetched_data") or {}
     context = state.get("inferred_context", "personal")
     group_name = state.get("inferred_group_name") or ""
@@ -370,7 +372,9 @@ def generate_response(state: AgentState) -> dict:
 
     stock_block = (
         "\n".join(
-            f"- {s['item']}: {s['quantity'] or 'some'} (id: {s['stock_id']})"
+            f"- {s['item']}: {s['quantity'] or 'some'}"
+            + (f" [{s['category']}]" if s.get('category') else "")
+            + f" (id: {s['stock_id']})"
             for s in stocks
         )
         if stocks
@@ -404,7 +408,7 @@ def generate_response(state: AgentState) -> dict:
     context_label = f"Group: {group_name}" if context == "group" else "Personal (MyDash)"
     is_action = intent in ("action_add", "action_update", "action_remove")
 
-    system = GENERATE_SYSTEM_TEMPLATE.format(
+    system = f"Today's date: {today}\n\n" + GENERATE_SYSTEM_TEMPLATE.format(
         context_label=context_label,
         stock_block=stock_block,
         cart_block=cart_block,
@@ -512,7 +516,8 @@ def ask_clarification(state: AgentState) -> dict:
 # ---------------------------------------------------------------------------
 
 def general_response(state: AgentState) -> dict:
-    system = GENERAL_RESPONSE_SYSTEM
+    today = datetime.utcnow().strftime("%A, %d %B %Y")
+    system = f"Today's date: {today}\n\n" + GENERAL_RESPONSE_SYSTEM
     lc_msgs: list = [SystemMessage(content=system)]
     for m in state["messages"]:
         if m["role"] == "user":
@@ -550,7 +555,8 @@ def general_response(state: AgentState) -> dict:
 # ---------------------------------------------------------------------------
 
 def greeting_node(state: AgentState) -> dict:
-    lc_msgs: list = [SystemMessage(content=GREETING_SYSTEM)]
+    today = datetime.utcnow().strftime("%A, %d %B %Y")
+    lc_msgs: list = [SystemMessage(content=f"Today's date: {today}\n\n" + GREETING_SYSTEM)]
     last_user = next(
         (m for m in reversed(state["messages"]) if m["role"] == "user"),
         None,
