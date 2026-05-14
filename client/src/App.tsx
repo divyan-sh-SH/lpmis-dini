@@ -4,8 +4,10 @@ import NavBar from './components/NavBar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import PersonalPage from './pages/PersonalPage';
+import PersonalNotesPage from './pages/PersonalNotesPage';
 import GroupsPage from './pages/GroupsPage';
 import GroupPage from './pages/GroupPage';
+import GroupNotesPage from './pages/GroupNotesPage';
 import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 
@@ -27,8 +29,10 @@ function AppContent() {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/personal" element={<PersonalPage />} />
+                <Route path="/personal/notes" element={<PersonalNotesPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:groupId" element={<GroupPage />} />
+                <Route path="/groups/:groupId/notes" element={<GroupNotesPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 {/* Catch-all: If they type a random URL, send them Home */}
                 <Route path="*" element={<Navigate to="/" replace />} />

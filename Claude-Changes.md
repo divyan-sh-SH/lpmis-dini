@@ -4,6 +4,122 @@ All modifications made by Claude are logged here, newest first.
 
 ---
 
+## 2026-05-14 — Notes Dedicated Pages + Header Buttons
+
+### Changes
+
+**`client/src/pages/PersonalNotesPage.tsx`** (new):
+- Route `/personal/notes` — full-page personal notes
+- Page header: "[UserName]'s Notes" with violet icon + back link to MyDash
+- Renders `<NotesEditor userId={...} hideTitle />` (list → editor flow unchanged)
+
+**`client/src/pages/GroupNotesPage.tsx`** (new):
+- Route `/groups/:groupId/notes` — full-page group notes
+- Fetches group list via `getGroupsForUser` to resolve the group name; shows not-found state if invalid groupId
+- Page header: "[GroupName]'s Notes" with violet icon + back link to group page
+- Renders `<NotesEditor groupId={...} hideTitle />`
+
+**`client/src/App.tsx`**:
+- Added routes `/personal/notes` → `PersonalNotesPage` and `/groups/:groupId/notes` → `GroupNotesPage`
+
+**`client/src/components/NotesEditor.tsx`**:
+- Added optional `hideTitle?: boolean` prop — when true, replaces the "My Notes"/"Group Notes" h2 with a compact note count so the page title isn't duplicated
+
+**`client/src/pages/PersonalPage.tsx`**:
+- Header changed: shows `user.username` instead of "MyDash" + violet "Notes" button linking to `/personal/notes`
+- Removed "Notes" tab from TABS (notes now lives on its own dedicated route)
+- Removed `NotesEditor` import and `notes: ''` from addLabel
+
+**`client/src/pages/GroupPage.tsx`**:
+- Added `useAuth` + `getGroupsForUser` to resolve and display the group name in the header
+- Header changed: shows group name + violet "Notes" button linking to `/groups/:groupId/notes`
+- Removed "Notes" tab from TABS, removed `NotesEditor` import
+- Tab bar styling simplified (no more violet gradient special-case for notes tab)
+
+---
+
+## 2026-05-14 — NotesEditor: Rewrite Panel Moved Above Textarea
+
+### Changes
+
+**`client/src/components/NotesEditor.tsx`**:
+- AI Rewrite panel now renders between the header row (Save/Rewrite buttons) and the textarea, instead of below it — user sees the instruction input and AI suggestion without scrolling
+
+---
+
+## 2026-05-14 — HomieAgent: Greeting Node, TODO Extraction, Clarification Fix, Prompts Refactor
+
+### Changes
+
+**`server/agent/prompts/`** (new directory, replaces `prompts.py`):
+- `classify.py` — CLASSIFY_SYSTEM with hard resolution rules: "MyDash"=personal always, clarification follow-up detection, greeting intent, extract_todos intent, "note" entity
+- `generate.py` — GENERATE_SYSTEM_TEMPLATE (adds `{notes_block}` slot + TODO extraction instructions), ACTION_PROTOCOL unchanged
+- `general.py` — GENERAL_RESPONSE_SYSTEM (unchanged content, isolated file)
+- `greeting.py` — GREETING_SYSTEM (new): prompt for friendly greeting + capability intro
+- `__init__.py` — re-exports all constants for backward-compatible import
+
+**`server/agent/state.py`**:
+- Added `"greeting"` and `"extract_todos"` to Intent constants
+- Added `"note"` as valid entity value in docstring
+
+**`server/agent/nodes.py`**:
+- Added `_try_resolve_clarification()` helper: if last assistant message was asking "personal or group?" and user's reply unambiguously matches (e.g. "MyDash", "mine", or a group name), returns resolved classification without LLM — fixes the clarification loop
+- `classify_intent`: calls shortcut first; passes last 6 messages instead of 5; classifier now includes `inferred_group_id` in its structured output schema
+- `resolve_context`: early return if `inferred_group_id` already set (avoids overwriting classifier-resolved group)
+- `fetch_data`: notes-aware — when `entity=="note"` or `intent=="extract_todos"`, fetches from `homedash_notes` (personal or group); otherwise skips notes to keep context lean
+- `generate_response`: adds `notes_block` to system prompt
+- Added `greeting_node`: lightweight LLM call using GREETING_SYSTEM; falls back to static message on error
+
+**`server/agent/graph.py`**:
+- Added `greeting_node` to the graph
+- `_route_after_classify`: routes `intent=="greeting"` → `greeting_node` → END
+
+---
+
+## 2026-05-12 — Notes Feature (Backend + Frontend)
+
+### Changes
+
+**`server/models/db_models.py`**:
+- Replaced `Journal` model with `Note` model pointing to `homedash_notes` table
+- `note_id` (UUID PK), `user_id` (nullable FK), `group_id` (nullable UUID FK → `homedash_group`), `date`, `content` (Text nullable), `created_at`, `updated_at`
+- CheckConstraint: exactly one of `user_id` or `group_id` must be non-null
+
+**`server/models/request_models.py`**:
+- Added `NoteCreate`, `NoteResponse`, `NoteUpdate` Pydantic models (removed `JournalCreate/Response/Update`)
+
+**`server/api/notes_router.py`** (new, replaces `journal_router.py`):
+- Prefix `/notes`; endpoints: GET /user/{id}, GET /user/{id}/date/{date}, GET /group/{id}, GET /group/{id}/date/{date}, POST, PUT /{note_id}, DELETE /{note_id}, POST /rewrite (AI rewrite via Claude)
+
+**`server/api/__init__.py`**:
+- Replaced `journal_router` import with `notes_router`
+
+**`client/src/types/dashboard.ts`**:
+- Replaced `Journal/JournalCreate/JournalUpdate` with `Note/NoteCreate/NoteUpdate`; `note_id`, nullable `user_id`/`group_id`
+
+**`client/src/lib/moneyApi.ts`**:
+- All journal API functions replaced with note equivalents (`getUserNotes`, `getGroupNotes`, `createNote`, `updateNote`, `deleteNote`, `rewriteNote`)
+- Endpoints: `/notes/*`; cache keys: `notes:user:{id}` / `notes:group:{id}`
+
+**`client/src/components/NotesEditor.tsx`** (new, replaces `JournalEditor.tsx`):
+- Discriminated union props: `{ userId: number }` or `{ groupId: string }`
+- Handles both personal (user_id set, group_id null) and group (group_id set, user_id null) notes
+- List view + editor view with AI rewrite; group-specific placeholder/header text
+
+**`client/src/components/JournalEditor.tsx`** (deleted):
+- Removed; fully replaced by `NotesEditor.tsx`
+
+**`client/src/pages/PersonalPage.tsx`**:
+- Tab `'journal'` → `'notes'`, label "Journal" → "Notes", icon `MenuBookRoundedIcon` → `NoteAltRoundedIcon`
+- Renders `<NotesEditor userId={user.user_id} />` for notes tab
+
+**`client/src/pages/GroupPage.tsx`**:
+- Added `'notes'` to `GroupTab` type; added Notes tab with `NoteAltRoundedIcon`
+- Notes tab renders `<NotesEditor groupId={groupId} />` outside the section card (manages its own layout)
+- Notes tab gets violet gradient active state matching PersonalPage
+
+---
+
 ## 2026-05-12 — Chat Page + HomePage Redesign
 
 ### Changes

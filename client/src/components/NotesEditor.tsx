@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Journal } from '../types/dashboard';
+import type { Note } from '../types/dashboard';
 import {
-  getJournalEntries,
-  createJournalEntry,
-  updateJournalEntry,
-  deleteJournalEntry,
-  rewriteJournal,
+  getUserNotes,
+  getGroupNotes,
+  createNote,
+  updateNote,
+  deleteNote,
+  rewriteNote,
 } from '../lib/moneyApi';
-import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
+import NoteAltRoundedIcon from '@mui/icons-material/NoteAltRounded';
 import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
@@ -18,7 +19,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const WORD_LIMIT = 5000;
 
@@ -48,35 +49,37 @@ function formatDateBadge(dateStr: string) {
 }
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error';
-type EditorTarget = { mode: 'create'; date: string } | { mode: 'edit'; entry: Journal };
+type EditorTarget = { mode: 'create'; date: string } | { mode: 'edit'; entry: Note };
 
-// ─── Main component ──────────────────────────────────────────────────────────
+type NotesEditorProps =
+  | { userId: number; groupId?: never; hideTitle?: boolean }
+  | { groupId: string; userId?: never; hideTitle?: boolean };
 
-export default function JournalEditor({ userId }: { userId: number }) {
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function NotesEditor({ userId, groupId, hideTitle = false }: NotesEditorProps) {
+  const isGroup = !!groupId;
   const [view, setView] = useState<'list' | 'editor'>('list');
 
-  // List state
-  const [journals, setJournals] = useState<Journal[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Editor state
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
   const [editorDate, setEditorDate] = useState(todayStr());
   const [content, setContent] = useState('');
   const [savedContent, setSavedContent] = useState('');
-  const [journalId, setJournalId] = useState<string | null>(null);
+  const [noteId, setNoteId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Rewrite state
   const [showRewritePrompt, setShowRewritePrompt] = useState(false);
   const [rewritePrompt, setRewritePrompt] = useState('');
   const [rewriting, setRewriting] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [rewriteError, setRewriteError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const promptRef = useRef<HTMLInputElement>(null);
 
@@ -84,39 +87,40 @@ export default function JournalEditor({ userId }: { userId: number }) {
     setListLoading(true);
     setListError(null);
     try {
-      const entries = await getJournalEntries(userId);
-      setJournals(entries);
+      const entries = isGroup
+        ? await getGroupNotes(groupId!)
+        : await getUserNotes(userId!);
+      setNotes(entries);
     } catch {
-      setListError('Failed to load journals. Please try again.');
+      setListError('Failed to load notes. Please try again.');
     } finally {
       setListLoading(false);
     }
-  }, [userId]);
+  }, [isGroup, userId, groupId]);
 
   useEffect(() => { loadList(); }, [loadList]);
 
-  // ── List → Editor ──────────────────────────────────────────────────────────
+  // ── List → Editor ─────────────────────────────────────────────────────────
 
   function openCreate() {
-    const today = todayStr();
-    setEditorTarget({ mode: 'create', date: today });
-    setEditorDate(today);
+    setEditorTarget({ mode: 'create', date: todayStr() });
+    setEditorDate(todayStr());
     setContent('');
     setSavedContent('');
-    setJournalId(null);
+    setNoteId(null);
     setSaveStatus('idle');
     setSaveError(null);
     closeRewrite();
     setView('editor');
   }
 
-  function openEdit(entry: Journal) {
+  function openEdit(entry: Note) {
     setEditorTarget({ mode: 'edit', entry });
     setEditorDate(entry.date);
     const c = entry.content ?? '';
     setContent(c);
     setSavedContent(c);
-    setJournalId(entry.journal_id);
+    setNoteId(entry.note_id);
     setSaveStatus('idle');
     setSaveError(null);
     closeRewrite();
@@ -128,7 +132,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
     loadList();
   }
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (view !== 'editor') return;
@@ -140,19 +144,25 @@ export default function JournalEditor({ userId }: { userId: number }) {
     setSaveStatus('saving');
     setSaveError(null);
     try {
-      if (journalId) {
-        const updated = await updateJournalEntry(journalId, { content });
+      if (noteId) {
+        const updated = await updateNote(noteId, { content });
         setSavedContent(updated.content ?? '');
       } else {
-        const existingForDate = journals.find((j) => j.date === editorDate);
+        // Upsert: check if a note already exists for this date in local list
+        const existingForDate = notes.find((n) => n.date === editorDate);
         if (existingForDate) {
-          const updated = await updateJournalEntry(existingForDate.journal_id, { content });
-          setJournalId(existingForDate.journal_id);
+          const updated = await updateNote(existingForDate.note_id, { content });
+          setNoteId(existingForDate.note_id);
           setSavedContent(updated.content ?? '');
           setEditorTarget({ mode: 'edit', entry: { ...existingForDate, content: updated.content ?? '' } });
         } else {
-          const created = await createJournalEntry({ user_id: userId, date: editorDate, content });
-          setJournalId(created.journal_id);
+          const created = await createNote({
+            user_id: isGroup ? null : userId,
+            group_id: isGroup ? groupId : null,
+            date: editorDate,
+            content,
+          });
+          setNoteId(created.note_id);
           setSavedContent(created.content ?? '');
           setEditorTarget({ mode: 'edit', entry: created });
         }
@@ -165,14 +175,14 @@ export default function JournalEditor({ userId }: { userId: number }) {
     }
   }
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────
 
   async function confirmDelete(id: string) {
     setDeleting(true);
     try {
-      await deleteJournalEntry(id);
+      await deleteNote(id);
       setDeletingId(null);
-      setJournals((prev) => prev.filter((j) => j.journal_id !== id));
+      setNotes((prev) => prev.filter((n) => n.note_id !== id));
     } catch {
       setListError('Delete failed. Please try again.');
     } finally {
@@ -180,7 +190,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
     }
   }
 
-  // ── Rewrite ────────────────────────────────────────────────────────────────
+  // ── Rewrite ───────────────────────────────────────────────────────────────
 
   function closeRewrite() {
     setShowRewritePrompt(false);
@@ -203,7 +213,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
     setSuggestion(null);
     setRewriteError(null);
     try {
-      const result = await rewriteJournal(content, rewritePrompt.trim());
+      const result = await rewriteNote(content, rewritePrompt.trim());
       setSuggestion(result);
     } catch {
       setRewriteError('AI rewrite failed. Please try again.');
@@ -218,26 +228,32 @@ export default function JournalEditor({ userId }: { userId: number }) {
     closeRewrite();
   }
 
-  // ── Render: List ───────────────────────────────────────────────────────────
+  // ── Render: List ──────────────────────────────────────────────────────────
 
   if (view === 'list') {
     return (
       <div>
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <MenuBookRoundedIcon sx={{ fontSize: 22 }} className="text-indigo-500" /> My Journals
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {journals.length} {journals.length === 1 ? 'entry' : 'entries'}
+        <div className="mb-5 flex items-center justify-between gap-3">
+          {hideTitle ? (
+            <p className="text-sm text-slate-500">
+              {notes.length} {notes.length === 1 ? 'note' : 'notes'}
             </p>
-          </div>
+          ) : (
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <NoteAltRoundedIcon sx={{ fontSize: 22 }} className="text-indigo-500" />
+                {isGroup ? 'Group Notes' : 'My Notes'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+              </p>
+            </div>
+          )}
           <button
             onClick={openCreate}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
+            className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
           >
-            <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> New Entry
+            <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> New Note
           </button>
         </div>
 
@@ -248,36 +264,38 @@ export default function JournalEditor({ userId }: { userId: number }) {
         {listLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500" />
-            <p className="text-sm text-slate-400">Loading your journals…</p>
+            <p className="text-sm text-slate-400">Loading notes…</p>
           </div>
-        ) : journals.length === 0 ? (
+        ) : notes.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-indigo-200 bg-gradient-to-br from-violet-50 to-indigo-50 py-16 text-center">
             <div className="mb-3 text-indigo-300">
-              <MenuBookRoundedIcon sx={{ fontSize: 48 }} />
+              <NoteAltRoundedIcon sx={{ fontSize: 48 }} />
             </div>
-            <p className="font-semibold text-slate-700">No journal entries yet</p>
-            <p className="mt-1 text-sm text-slate-400">Start writing your first entry today.</p>
+            <p className="font-semibold text-slate-700">No notes yet</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {isGroup ? 'Add a shared note for your group.' : 'Capture your thoughts, ideas, or tasks.'}
+            </p>
             <button
               onClick={openCreate}
               className="mt-5 flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
             >
-              <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> Write Today's Entry
+              <EditNoteRoundedIcon sx={{ fontSize: 18 }} /> Write a Note
             </button>
           </div>
         ) : (
           <div className="space-y-3">
-            {journals.map((entry) => {
+            {notes.map((entry) => {
               const badge = formatDateBadge(entry.date);
               const words = countWords(entry.content ?? '');
               const preview = (entry.content ?? '').slice(0, 140).trim();
-              const isDeleting = deletingId === entry.journal_id;
+              const isCurrentDel = deletingId === entry.note_id;
               const isToday = entry.date === todayStr();
 
               return (
                 <div
-                  key={entry.journal_id}
+                  key={entry.note_id}
                   className={`group relative flex gap-4 rounded-2xl border bg-white p-4 shadow-sm transition hover:shadow-md ${
-                    isDeleting
+                    isCurrentDel
                       ? 'border-red-200 bg-red-50'
                       : isToday
                       ? 'border-indigo-200 hover:border-indigo-300'
@@ -290,9 +308,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
                       isToday ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
                     }`}
                   >
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">
-                      {badge.month}
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">{badge.month}</span>
                     <span className="text-2xl font-extrabold leading-none">{badge.day}</span>
                     <span className="text-[10px] opacity-60">{badge.year}</span>
                   </div>
@@ -309,11 +325,11 @@ export default function JournalEditor({ userId }: { userId: number }) {
                       <span className="ml-auto text-xs text-slate-400">{words.toLocaleString()} words</span>
                     </div>
 
-                    {isDeleting ? (
+                    {isCurrentDel ? (
                       <div className="flex items-center gap-3 py-1">
-                        <p className="text-sm font-medium text-red-600">Delete this entry?</p>
+                        <p className="text-sm font-medium text-red-600">Delete this note?</p>
                         <button
-                          onClick={() => confirmDelete(entry.journal_id)}
+                          onClick={() => confirmDelete(entry.note_id)}
                           disabled={deleting}
                           className="rounded-lg bg-red-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
                         >
@@ -327,20 +343,15 @@ export default function JournalEditor({ userId }: { userId: number }) {
                         </button>
                       </div>
                     ) : (
-                      <p
-                        className="line-clamp-2 text-sm leading-relaxed text-slate-600"
-                        style={{ fontFamily: 'Georgia, serif' }}
-                      >
-                        {preview || (
-                          <span className="italic text-slate-300">No content written yet.</span>
-                        )}
+                      <p className="line-clamp-2 text-sm leading-relaxed text-slate-600">
+                        {preview || <span className="italic text-slate-300">No content written yet.</span>}
                         {(entry.content ?? '').length > 140 && '…'}
                       </p>
                     )}
                   </div>
 
                   {/* Action buttons */}
-                  {!isDeleting && (
+                  {!isCurrentDel && (
                     <div className="flex shrink-0 flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                       <button
                         onClick={() => openEdit(entry)}
@@ -350,7 +361,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
                         <EditRoundedIcon sx={{ fontSize: 16 }} />
                       </button>
                       <button
-                        onClick={() => setDeletingId(entry.journal_id)}
+                        onClick={() => setDeletingId(entry.note_id)}
                         title="Delete"
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-500"
                       >
@@ -367,7 +378,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
     );
   }
 
-  // ── Render: Editor ─────────────────────────────────────────────────────────
+  // ── Render: Editor ────────────────────────────────────────────────────────
 
   const wordCount = countWords(content);
   const overLimit = wordCount > WORD_LIMIT;
@@ -388,16 +399,14 @@ export default function JournalEditor({ userId }: { userId: number }) {
 
   return (
     <div>
-      {/* Back nav */}
       <button
         onClick={goBack}
         className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-400 transition hover:text-slate-700"
       >
-        <ArrowBackRoundedIcon sx={{ fontSize: 20 }} /> All Journals
+        <ArrowBackRoundedIcon sx={{ fontSize: 20 }} /> All Notes
       </button>
 
       <div className="rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
-        {/* Top accent bar */}
         <div className="h-1 w-full bg-gradient-to-r from-violet-400 via-indigo-400 to-sky-400" />
 
         <div className="p-3">
@@ -405,9 +414,8 @@ export default function JournalEditor({ userId }: { userId: number }) {
           <div className="mb-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                {isCreateMode ? 'New Journal Entry' : 'Edit Journal Entry'}
+                {isCreateMode ? 'New Note' : 'Edit Note'}
               </h2>
-
               {isCreateMode ? (
                 <div className="flex items-center gap-2 mt-1">
                   <label className="text-xs font-medium text-slate-400">Date:</label>
@@ -442,36 +450,9 @@ export default function JournalEditor({ userId }: { userId: number }) {
             </div>
           </div>
 
-          {/* Textarea */}
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={`How was your day? What's on your mind?\n\nWrite freely — this is your space…`}
-            rows={18}
-            className="w-full resize-none rounded-xl border border-indigo-100 bg-white px-4 py-3 text-lg leading-8 text-slate-700 placeholder-slate-300 shadow-inner outline-none transition focus:border-indigo-300 focus:shadow-md"
-            style={{ fontFamily: 'Georgia, serif' }}
-          />
-
-          {/* Footer — word count only */}
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className={`text-sm font-medium ${wordCountColor}`}>
-              {wordCount.toLocaleString()} / {WORD_LIMIT.toLocaleString()} words
-            </span>
-            {saveStatusEl()}
-          </div>
-
-          {overLimit && (
-            <p className="mt-1 text-sm text-red-500">
-              Over the {WORD_LIMIT.toLocaleString()}-word limit. Please shorten your entry.
-            </p>
-          )}
-          {saveError && (
-            <p className="mt-1 text-sm text-red-500">{saveError}</p>
-          )}
-
-          {/* Rewrite prompt */}
+          {/* Rewrite prompt — shown between header and textarea */}
           {showRewritePrompt && (
-            <div className="mt-4 rounded-2xl border border-violet-200 bg-white/80 p-4 shadow-sm">
+            <div className="mb-4 rounded-2xl border border-violet-200 bg-white/80 p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <AutoFixHighRoundedIcon sx={{ fontSize: 18 }} className="text-violet-500" />
@@ -491,7 +472,7 @@ export default function JournalEditor({ userId }: { userId: number }) {
                   value={rewritePrompt}
                   onChange={(e) => setRewritePrompt(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleRewrite()}
-                  placeholder="e.g. Make it concise · Make it professional · Add more emotion"
+                  placeholder="e.g. Make it concise · Bullet points · More formal"
                   className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-violet-400 transition"
                   disabled={rewriting}
                 />
@@ -511,17 +492,13 @@ export default function JournalEditor({ userId }: { userId: number }) {
 
               {rewriteError && <p className="mt-2 text-xs text-red-500">{rewriteError}</p>}
 
-              {/* AI Suggestion */}
               {suggestion && (
                 <div className="mt-4 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 p-4">
                   <div className="mb-2 flex items-center gap-2">
                     <LightbulbRoundedIcon sx={{ fontSize: 16 }} className="text-amber-500" />
                     <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">AI Suggestion</p>
                   </div>
-                  <p
-                    className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-700"
-                    style={{ fontFamily: 'Georgia, serif' }}
-                  >
+                  <p className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-700">
                     {suggestion}
                   </p>
                   <div className="mt-3 flex justify-end gap-2">
@@ -542,6 +519,34 @@ export default function JournalEditor({ userId }: { userId: number }) {
               )}
             </div>
           )}
+
+          {/* Textarea */}
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={
+              isGroup
+                ? `Add a shared note for your group…\n\nCapture decisions, reminders, or anything the group needs to know.`
+                : `What's on your mind?\n\nJot down ideas, tasks, plans, or anything worth remembering…`
+            }
+            rows={18}
+            className="w-full resize-none rounded-xl border border-indigo-100 bg-white px-4 py-3 text-lg leading-8 text-slate-700 placeholder-slate-300 shadow-inner outline-none transition focus:border-indigo-300 focus:shadow-md"
+          />
+
+          {/* Footer */}
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className={`text-sm font-medium ${wordCountColor}`}>
+              {wordCount.toLocaleString()} / {WORD_LIMIT.toLocaleString()} words
+            </span>
+            {saveStatusEl()}
+          </div>
+
+          {overLimit && (
+            <p className="mt-1 text-sm text-red-500">
+              Over the {WORD_LIMIT.toLocaleString()}-word limit. Please shorten your note.
+            </p>
+          )}
+          {saveError && <p className="mt-1 text-sm text-red-500">{saveError}</p>}
         </div>
       </div>
     </div>

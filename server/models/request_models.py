@@ -127,15 +127,17 @@ class TransactionUpdate(BaseModel):
     date: Optional[datetime] = None
     type: Optional[str] = None
 
-# --- JOURNAL MODELS ---
-class JournalCreate(BaseModel):
-    user_id: int
+# --- NOTES MODELS ---
+class NoteCreate(BaseModel):
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
     date: str  # YYYY-MM-DD
     content: str = ""
 
-class JournalResponse(BaseModel):
-    journal_id: UUID
-    user_id: int
+class NoteResponse(BaseModel):
+    note_id: UUID
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
     date: str
     content: Optional[str]
     created_at: datetime
@@ -144,6 +146,6 @@ class JournalResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class JournalUpdate(BaseModel):
+class NoteUpdate(BaseModel):
     content: str
 

@@ -7,7 +7,7 @@ import type {
   Group, GroupCreate,
   Stock, StockCreate,
   ChatMessage, AgentChatResponse,
-  Journal, JournalCreate, JournalUpdate,
+  Note, NoteCreate, NoteUpdate,
 } from '../types/dashboard';
 
 async function extractError(res: Response): Promise<string> {
@@ -233,56 +233,60 @@ export async function deleteCart(cart_id: string): Promise<void> {
   apiCache.invalidate('carts');
 }
 
-// --- Journal ---
+// --- Notes ---
 
-export async function getJournalEntries(user_id: number): Promise<Journal[]> {
-  const key = `journal:user:${user_id}`;
-  const cached = apiCache.get<Journal[]>(key);
+export async function getUserNotes(user_id: number): Promise<Note[]> {
+  const key = `notes:user:${user_id}`;
+  const cached = apiCache.get<Note[]>(key);
   if (cached) return cached;
-  const res = await fetch(`${API_BASE}/journal/user/${user_id}`);
+  const res = await fetch(`${API_BASE}/notes/user/${user_id}`);
   if (!res.ok) throw new Error(await extractError(res));
   const data = await res.json();
   apiCache.set(key, data);
   return data;
 }
 
-export async function getJournalEntry(user_id: number, date: string): Promise<Journal | null> {
-  const res = await fetch(`${API_BASE}/journal/user/${user_id}/date/${date}`);
-  if (res.status === 404) return null;
+export async function getGroupNotes(group_id: string): Promise<Note[]> {
+  const key = `notes:group:${group_id}`;
+  const cached = apiCache.get<Note[]>(key);
+  if (cached) return cached;
+  const res = await fetch(`${API_BASE}/notes/group/${group_id}`);
   if (!res.ok) throw new Error(await extractError(res));
-  return res.json();
+  const data = await res.json();
+  apiCache.set(key, data);
+  return data;
 }
 
-export async function createJournalEntry(entry: JournalCreate): Promise<Journal> {
-  const res = await fetch(`${API_BASE}/journal`, {
+export async function createNote(note: NoteCreate): Promise<Note> {
+  const res = await fetch(`${API_BASE}/notes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(entry),
+    body: JSON.stringify(note),
   });
   if (!res.ok) throw new Error(await extractError(res));
-  apiCache.invalidate('journal');
+  apiCache.invalidate('notes');
   return res.json();
 }
 
-export async function updateJournalEntry(journal_id: string, update: JournalUpdate): Promise<Journal> {
-  const res = await fetch(`${API_BASE}/journal/${journal_id}`, {
+export async function updateNote(note_id: string, update: NoteUpdate): Promise<Note> {
+  const res = await fetch(`${API_BASE}/notes/${note_id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(update),
   });
   if (!res.ok) throw new Error(await extractError(res));
-  apiCache.invalidate('journal');
+  apiCache.invalidate('notes');
   return res.json();
 }
 
-export async function deleteJournalEntry(journal_id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/journal/${journal_id}`, { method: 'DELETE' });
+export async function deleteNote(note_id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/notes/${note_id}`, { method: 'DELETE' });
   if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
-  apiCache.invalidate('journal');
+  apiCache.invalidate('notes');
 }
 
-export async function rewriteJournal(content: string, instruction: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/journal/rewrite`, {
+export async function rewriteNote(content: string, instruction: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/notes/rewrite`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content, instruction }),

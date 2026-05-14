@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 
 export default function NavBar() {
   const { logout } = useAuth();
@@ -23,6 +24,15 @@ export default function NavBar() {
         </NavLink>
         <NavLink to="/groups" className={({ isActive }) => `no-underline px-3 py-1.5 rounded-full text-slate-500 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-blue-50 text-blue-500 border-blue-300/35' : ''}`}>
           My HomeDash
+        </NavLink>
+        <NavLink
+          to="/chat"
+          className={({ isActive }) =>
+            `no-underline flex items-center gap-1.5 px-3 py-1.5 rounded-full text-slate-500 font-semibold border border-transparent transition-colors duration-150 hover:bg-slate-100 hover:border-slate-300/35 ${isActive ? 'bg-purple-50 text-purple-600 border-purple-300/35' : ''}`
+          }
+        >
+          <SmartToyRoundedIcon sx={{ fontSize: 16 }} />
+          <span className="hidden sm:inline">Chat</span>
         </NavLink>
       </div>
 

@@ -6,7 +6,7 @@ from api.cart_router import cart_router
 from api.transaction_router import transaction_router
 from api.stock_router import stock_router
 from api.chat_router import chat_router
-from api.journal_router import journal_router
+from api.notes_router import notes_router
 
 
 main_router = APIRouter(prefix="/homedash")
@@ -17,6 +17,6 @@ main_router.include_router(cart_router)
 main_router.include_router(transaction_router)
 main_router.include_router(stock_router)
 main_router.include_router(chat_router)
-main_router.include_router(journal_router)
+main_router.include_router(notes_router)
 
 __all__ = ["main_router"]

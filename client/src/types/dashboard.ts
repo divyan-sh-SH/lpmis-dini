@@ -106,21 +106,23 @@ export type AgentChatResponse = {
   inferred_group_id?: string;
 };
 
-export type Journal = {
-  journal_id: string;
-  user_id: number;
+export type Note = {
+  note_id: string;
+  user_id?: number | null;
+  group_id?: string | null;
   date: string;
   content: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type JournalCreate = {
-  user_id: number;
+export type NoteCreate = {
+  user_id?: number | null;
+  group_id?: string | null;
   date: string;
   content: string;
 };
 
-export type JournalUpdate = {
+export type NoteUpdate = {
   content: string;
 };

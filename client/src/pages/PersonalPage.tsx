@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Transactions from '../components/Transactions';
 import Stocks from '../components/Stocks';
 import Carts from '../components/Carts';
-import JournalEditor from '../components/JournalEditor';
 import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
 import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
-import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
+import NoteAltRoundedIcon from '@mui/icons-material/NoteAltRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import {
@@ -26,13 +26,12 @@ import {
 } from '../lib/moneyApi';
 import type { Transaction, Stock, CartItem, TransactionCreate, StockCreate, CartItemCreate } from '../types/dashboard';
 
-type DashTab = 'transactions' | 'stocks' | 'cart' | 'journal';
+type DashTab = 'transactions' | 'stocks' | 'cart';
 
 const TABS: { id: DashTab; label: string; icon: React.ReactNode }[] = [
   { id: 'transactions', label: 'Transactions', icon: <SwapVertRoundedIcon sx={{ fontSize: 16 }} /> },
   { id: 'stocks', label: 'Stocks', icon: <InventoryRoundedIcon sx={{ fontSize: 16 }} /> },
   { id: 'cart', label: 'Cart', icon: <ShoppingCartRoundedIcon sx={{ fontSize: 16 }} /> },
-  { id: 'journal', label: 'Journal', icon: <MenuBookRoundedIcon sx={{ fontSize: 16 }} /> },
 ];
 
 const emptyTransaction = (user_id?: number): TransactionCreate => ({
@@ -217,7 +216,6 @@ export default function PersonalPage() {
     transactions: '+ Add Transaction',
     stocks: '+ Add Stock',
     cart: '+ Add Cart Item',
-    journal: '',
   };
 
   function openAddModal() {
@@ -228,26 +226,29 @@ export default function PersonalPage() {
 
   return (
     <div className="w-full">
-      <header className="mb-5">
-        <h1 className="text-3xl font-bold tracking-tight">MyDash</h1>
-        <p className="text-slate-500 mt-1">Manage your personal transactions, stocks, cart, and journal.</p>
+      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{user?.username || 'MyDash'}</h1>
+        </div>
+        <Link
+          to="/personal/notes"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
+        >
+          <NoteAltRoundedIcon sx={{ fontSize: 18 }} /> Notes
+        </Link>
       </header>
 
       {loading && <div className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>}
       {error && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {/* Tab bar */}
-      <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+      <div className="flex gap-1 overflow-x-auto rounded-t-xl bg-slate-100">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab.id
-                ? tab.id === 'journal'
-                  ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-sm'
-                  : 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
+            className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {tab.icon}
@@ -257,34 +258,30 @@ export default function PersonalPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'journal' ? (
-        user && <JournalEditor userId={user.user_id} />
-      ) : (
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold capitalize">
-                {activeTab === 'cart' ? 'Cart' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {activeTab === 'transactions' && 'Track income and expenses.'}
-                {activeTab === 'stocks' && 'Manage inventory items and quantities.'}
-                {activeTab === 'cart' && 'Keep shopping items organised.'}
-              </p>
-            </div>
-            <button
-              onClick={openAddModal}
-              className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
-            >
-              {addLabel[activeTab]}
-            </button>
+      <section className="rounded-b-3xl bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold capitalize">
+              {activeTab === 'cart' ? 'Cart' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </h2>
+            <p className="text-xs text-slate-500">
+              {activeTab === 'transactions' && 'Track income and expenses.'}
+              {activeTab === 'stocks' && 'Manage inventory items and quantities.'}
+              {activeTab === 'cart' && 'Keep shopping items organised.'}
+            </p>
           </div>
+          <button
+            onClick={openAddModal}
+            className="self-start sm:self-auto inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+          >
+            {addLabel[activeTab]}
+          </button>
+        </div>
 
-          {activeTab === 'transactions' && <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />}
-          {activeTab === 'stocks' && <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />}
-          {activeTab === 'cart' && <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />}
-        </section>
-      )}
+        {activeTab === 'transactions' && <Transactions transactions={transactions} onEdit={openEditTx} onDelete={handleDeleteTx} />}
+        {activeTab === 'stocks' && <Stocks stocks={stocks} onEdit={openEditStock} onDelete={handleDeleteStock} />}
+        {activeTab === 'cart' && <Carts carts={carts} onEdit={openEditCart} onDelete={handleDeleteCart} />}
+      </section>
 
       {/* ── Add Transaction Modal ── */}
       {showTxModal && (

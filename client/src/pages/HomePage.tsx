@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import LineChart from '../components/LineChart';
 import { getUserTransactions, getGroupsForUser } from '../lib/moneyApi';
 import type { Transaction, Group } from '../types/dashboard';
-import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
@@ -87,7 +86,7 @@ export default function HomePage() {
     : '?';
 
   return (
-    <div className="w-full space-y-5 pb-24">
+    <div className="w-full space-y-5">
 
       {/* ── Hero card ── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 px-6 py-6 text-white shadow-lg shadow-indigo-200/50">
@@ -334,14 +333,6 @@ export default function HomePage() {
         </>
       )}
 
-      {/* ── Floating Chat Button (FAB) ── */}
-      <Link
-        to="/chat"
-        className="fixed bottom-6 right-4 sm:right-6 z-30 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-300/50 hover:shadow-xl hover:shadow-indigo-400/50 hover:scale-105 transition-all no-underline active:scale-95"
-      >
-        <SmartToyRoundedIcon sx={{ fontSize: 20 }} />
-        <span className="hidden xs:inline sm:inline">Ask HomieAgent</span>
-      </Link>
     </div>
   );
 }

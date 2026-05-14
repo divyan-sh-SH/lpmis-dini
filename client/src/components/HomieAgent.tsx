@@ -334,11 +334,11 @@ export default function HomieAgent({ userId, groups, fullPage = false }: HomieAg
   const isEmpty = messages.length === 0;
 
   const outerCls = fullPage
-    ? 'flex flex-col flex-1 min-h-0 bg-white'
+    ? 'flex flex-col flex-1 min-h-0 bg-slate-50'
     : 'rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden';
 
   const messagesCls = fullPage
-    ? 'flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-4 bg-slate-50'
+    ? 'flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-4 space-y-4'
     : 'min-h-[80px] max-h-[420px] overflow-y-auto px-3 py-3 space-y-4 bg-slate-50';
 
   return (
@@ -368,24 +368,23 @@ export default function HomieAgent({ userId, groups, fullPage = false }: HomieAg
         </div>
       )}
 
-      {/* Clear button for fullPage mode */}
-      {fullPage && messages.length > 0 && (
-        <div className="flex justify-end px-4 py-2 border-b border-slate-100 shrink-0">
-          <button
-            onClick={clearChat}
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500 transition"
-          >
-            <DeleteSweepRoundedIcon sx={{ fontSize: 15 }} />
-            Clear chat
-          </button>
-        </div>
-      )}
-
       {/* Messages */}
       <div
         ref={containerRef}
         className={messagesCls}
       >
+        {/* Clear button — floats at top-right of messages area in fullPage mode */}
+        {fullPage && messages.length > 0 && (
+          <div className="flex justify-end mb-1">
+            <button
+              onClick={clearChat}
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500 transition"
+            >
+              <DeleteSweepRoundedIcon sx={{ fontSize: 14 }} />
+              Clear
+            </button>
+          </div>
+        )}
         {isEmpty ? (
           <div className="flex flex-col items-center gap-4 py-4">
             <p className="text-sm text-slate-400 text-center">
@@ -541,14 +540,14 @@ export default function HomieAgent({ userId, groups, fullPage = false }: HomieAg
       </div>
 
       {/* Input area */}
-      <div className="flex gap-2 border-t border-slate-100 px-3 py-3 bg-white">
+      <div className={`flex gap-2 border-t border-slate-200 bg-white ${fullPage ? 'px-4 sm:px-8 py-4' : 'px-3 py-3 border-slate-100'}`}>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about meals, spending, or stocks…"
-          className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-base outline-none focus:border-indigo-400 focus:bg-white transition disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-base outline-none focus:border-indigo-400 focus:bg-white transition disabled:opacity-50"
           disabled={loading}
         />
         <button
