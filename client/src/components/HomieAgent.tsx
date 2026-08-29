@@ -11,9 +11,13 @@ import {
   updateCart,
   updateStock,
   updateTransaction,
+  createTodo,
+  createCalendarEvent,
 } from '../lib/moneyApi';
-import type { CartItemCreate, StockCreate, TransactionCreate } from '../types/dashboard';
+import type { CartItemCreate, StockCreate, TransactionCreate, TodoCreate, CalendarEventCreate } from '../types/dashboard';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
@@ -102,7 +106,7 @@ function renderMarkdown(content: string): React.ReactNode {
 // --- Entity color config ---
 
 const entityConfig: Record<
-  'transaction' | 'stock' | 'cart',
+  string,
   { border: string; bg: string; btn: string; icon: React.ReactNode }
 > = {
   transaction: {
@@ -122,6 +126,24 @@ const entityConfig: Record<
     bg: 'bg-amber-50',
     btn: 'bg-amber-500 hover:bg-amber-600 text-white',
     icon: <ShoppingCartRoundedIcon sx={{ fontSize: 15 }} className="text-amber-500" />,
+  },
+  calendar: {
+    border: 'border-indigo-200',
+    bg: 'bg-indigo-50',
+    btn: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+    icon: <CalendarMonthRoundedIcon sx={{ fontSize: 15 }} className="text-indigo-600" />,
+  },
+  todo: {
+    border: 'border-orange-200',
+    bg: 'bg-orange-50',
+    btn: 'bg-orange-500 hover:bg-orange-600 text-white',
+    icon: <AssignmentRoundedIcon sx={{ fontSize: 15 }} className="text-orange-500" />,
+  },
+  habit: {
+    border: 'border-teal-200',
+    bg: 'bg-teal-50',
+    btn: 'bg-teal-600 hover:bg-teal-700 text-white',
+    icon: <InventoryRoundedIcon sx={{ fontSize: 15 }} className="text-teal-600" />,
   },
 };
 
@@ -284,6 +306,10 @@ export default function HomieAgent({ userId, groups, fullPage = false }: HomieAg
         await createStock(data as unknown as StockCreate);
       } else if (card.entity === 'cart') {
         await createCart(data as unknown as CartItemCreate);
+      } else if (card.entity === 'todo') {
+        await createTodo(data as unknown as TodoCreate);
+      } else if (card.entity === 'calendar') {
+        await createCalendarEvent(data as unknown as CalendarEventCreate);
       }
     } else if (card.type === 'remove') {
       if (card.entity === 'transaction' && data.transaction_id) {

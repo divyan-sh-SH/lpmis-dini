@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import UUID, Column, Integer, String, Float, Text, TIMESTAMP, BigInteger, ForeignKey, Enum, CheckConstraint
+from sqlalchemy import UUID, Column, Integer, String, Float, Text, TIMESTAMP, BigInteger, ForeignKey, Enum, CheckConstraint, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY
 from datetime import datetime
 import uuid
@@ -113,5 +113,86 @@ class Note(Base):
         CheckConstraint(
             "(user_id IS NOT NULL AND group_id IS NULL) OR (user_id IS NULL AND group_id IS NOT NULL)",
             name="check_owner_exists_note",
+        ),
+    )
+
+
+class Habit(Base):
+    __tablename__ = "homedash_habit"
+
+    habit_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    frequency = Column(String(20), nullable=False)  # daily|weekdays|weekends|weekly
+    target_value = Column(Integer, nullable=True)
+    unit = Column(String(30), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+    user_id = Column(BigInteger, ForeignKey("homedash_user.user_id"), nullable=True)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("homedash_group.group_id"), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(user_id IS NOT NULL AND group_id IS NULL) OR (user_id IS NULL AND group_id IS NOT NULL)",
+            name="check_owner_exists_habit",
+        ),
+    )
+
+
+class HabitLog(Base):
+    __tablename__ = "homedash_habit_log"
+
+    log_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    habit_id = Column(UUID(as_uuid=True), ForeignKey("homedash_habit.habit_id", ondelete="CASCADE"), nullable=False)
+    date = Column(String(10), nullable=False)  # YYYY-MM-DD
+    completed = Column(Boolean, default=False, nullable=False)
+    value = Column(Integer, nullable=True)
+    logged_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("habit_id", "date", name="uq_habit_log_habit_date"),
+    )
+
+
+class Todo(Base):
+    __tablename__ = "homedash_todo"
+
+    todo_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(300), nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(String(10), nullable=True)  # YYYY-MM-DD
+    priority = Column(String(10), default="medium", nullable=False)  # low|medium|high
+    completed = Column(Boolean, default=False, nullable=False)
+    completed_at = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+    user_id = Column(BigInteger, ForeignKey("homedash_user.user_id"), nullable=True)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("homedash_group.group_id"), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(user_id IS NOT NULL AND group_id IS NULL) OR (user_id IS NULL AND group_id IS NOT NULL)",
+            name="check_owner_exists_todo",
+        ),
+    )
+
+
+class CalendarEvent(Base):
+    __tablename__ = "homedash_calendar"
+
+    event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    date = Column(String(10), nullable=False)  # YYYY-MM-DD
+    time_start = Column(String(5), nullable=True)  # HH:MM
+    time_end = Column(String(5), nullable=True)  # HH:MM
+    created_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+    user_id = Column(BigInteger, ForeignKey("homedash_user.user_id"), nullable=True)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("homedash_group.group_id"), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(user_id IS NOT NULL AND group_id IS NULL) OR (user_id IS NULL AND group_id IS NOT NULL)",
+            name="check_owner_exists_calendar",
         ),
     )

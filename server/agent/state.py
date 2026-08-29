@@ -33,3 +33,8 @@ class Intent:
     ACTION_REMOVE = "action_remove"
     GENERAL_ADVICE = "general_advice"
     CLARIFY       = "clarify"
+    HABIT_QUERY   = "habit_query"
+    HABIT_LOG     = "habit_log"
+    TODO_ADD      = "todo_add"
+    TODO_QUERY    = "todo_query"
+    CALENDAR_ADD  = "calendar_add"

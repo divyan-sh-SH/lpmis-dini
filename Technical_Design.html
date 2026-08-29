@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LPMIS — Technical Design: Calendar, Habits & To-Do</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --indigo: #6366f1; --indigo-dark: #4338ca; --indigo-light: #eef2ff;
+    --violet: #8b5cf6; --violet-light: #ede9fe;
+    --blue: #3b82f6; --blue-light: #dbeafe;
+    --emerald: #10b981; --emerald-light: #d1fae5;
+    --amber: #f59e0b; --amber-light: #fef3c7;
+    --rose: #f43f5e; --rose-light: #ffe4e6;
+    --teal: #14b8a6; --teal-light: #ccfbf1;
+    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+    --slate-400: #94a3b8; --slate-500: #64748b; --slate-600: #475569;
+    --slate-700: #334155; --slate-800: #1e293b; --slate-900: #0f172a;
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--slate-50); color: var(--slate-800); line-height: 1.6; }
+
+  /* HERO */
+  .hero { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 45%, #2e1065 100%); color: white; padding: 58px 32px 50px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 15% 60%, rgba(99,102,241,.35) 0%, transparent 55%), radial-gradient(ellipse at 85% 30%, rgba(139,92,246,.28) 0%, transparent 50%); }
+  .hero-inner { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+  .badge { display: inline-block; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); border-radius: 99px; padding: 4px 16px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 20px; }
+  .hero h1 { font-size: clamp(24px,5vw,42px); font-weight: 800; letter-spacing: -.03em; margin-bottom: 14px; line-height: 1.15; }
+  .hero p { font-size: 15px; color: rgba(255,255,255,.7); max-width: 560px; margin: 0 auto 28px; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .pill { background: rgba(255,255,255,.11); border: 1px solid rgba(255,255,255,.18); border-radius: 99px; padding: 5px 14px; font-size: 12px; font-weight: 500; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,.96); backdrop-filter: blur(14px); border-bottom: 1px solid var(--slate-200); padding: 0 20px; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { display: block; padding: 13px 14px; font-size: 12.5px; font-weight: 600; color: var(--slate-500); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; transition: all .15s; }
+  .nav a:hover { color: var(--indigo); border-color: var(--indigo); }
+
+  /* LAYOUT */
+  .page { max-width: 1060px; margin: 0 auto; padding: 0 24px 100px; }
+  .section { margin-top: 64px; }
+  .sec-hd { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 28px; }
+  .sec-ico { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; margin-top: 2px; }
+  .sec-hd h2 { font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
+  .sec-hd .sub { font-size: 13px; color: var(--slate-500); margin-top: 3px; }
+  hr { border: none; border-top: 1px solid var(--slate-200); margin: 56px 0 0; }
+
+  /* GRID */
+  .g2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .g3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .g4 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+  /* CARD */
+  .card { background: white; border: 1px solid var(--slate-200); border-radius: 16px; padding: 22px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .fcard { background: white; border: 1px solid var(--slate-200); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
+  .fcard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 14px 14px 0 0; }
+  .fi::before { background: linear-gradient(90deg, var(--indigo), var(--violet)); }
+  .fe::before { background: linear-gradient(90deg, var(--emerald), #34d399); }
+  .fa::before { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+  .fb::before { background: linear-gradient(90deg, var(--blue), #60a5fa); }
+  .fv::before { background: linear-gradient(90deg, var(--violet), #c084fc); }
+  .ft::before { background: linear-gradient(90deg, var(--teal), #2dd4bf); }
+  .fcard .ico { font-size: 22px; margin-bottom: 10px; }
+  .fcard h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .fcard p { font-size: 13px; color: var(--slate-600); line-height: 1.55; }
+
+  /* TAGS */
+  .tag { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .tn { background: #dcfce7; color: #15803d; }
+  .tu { background: #dbeafe; color: #1d4ed8; }
+  .te { background: #ede9fe; color: #6d28d9; }
+  .td { background: #fef3c7; color: #b45309; }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--slate-100); padding: 10px 14px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--slate-600); border-bottom: 1px solid var(--slate-200); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--slate-100); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.nr td { background: #f0fdf4; }
+
+  /* CODE */
+  pre { background: var(--slate-900); color: #e2e8f0; border-radius: 12px; padding: 20px; font-size: 12px; line-height: 1.75; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .kw { color: #818cf8; } .str { color: #6ee7b7; } .cm { color: #64748b; font-style: italic; }
+  .fn { color: #fbbf24; } .tp { color: #c084fc; }
+  code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; background: var(--slate-100); border-radius: 5px; padding: 1px 6px; }
+
+  /* CALLOUT */
+  .callout { border-radius: 12px; padding: 16px 20px; font-size: 13px; display: flex; gap: 12px; align-items: flex-start; }
+  .ci { background: var(--indigo-light); border-left: 3px solid var(--indigo); }
+  .ce { background: var(--emerald-light); border-left: 3px solid var(--emerald); }
+  .ca { background: var(--amber-light); border-left: 3px solid var(--amber); }
+  .cv { background: var(--violet-light); border-left: 3px solid var(--violet); }
+  .ct { background: var(--teal-light); border-left: 3px solid var(--teal); }
+  .callout-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .callout p { color: var(--slate-600); }
+
+  /* TIMELINE */
+  .tl { position: relative; padding-left: 28px; }
+  .tl::before { content: ''; position: absolute; left: 8px; top: 8px; bottom: 8px; width: 2px; background: var(--slate-200); }
+  .tli { position: relative; margin-bottom: 22px; }
+  .tl-dot { position: absolute; left: -24px; top: 4px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; background: var(--indigo); box-shadow: 0 0 0 2px var(--indigo); }
+  .tl-dot.e { background: var(--emerald); box-shadow: 0 0 0 2px var(--emerald); }
+  .tl-dot.v { background: var(--violet); box-shadow: 0 0 0 2px var(--violet); }
+  .tl-dot.a { background: var(--amber); box-shadow: 0 0 0 2px var(--amber); }
+  .tl-dot.t { background: var(--teal); box-shadow: 0 0 0 2px var(--teal); }
+  .tli h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .tli p { font-size: 13px; color: var(--slate-600); }
+
+  /* ROUTE ROWS */
+  .rrow { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--slate-100); font-size: 13px; flex-wrap: wrap; }
+  .rrow:last-child { border-bottom: none; }
+  .rpath { font-family: monospace; font-size: 11.5px; color: var(--indigo-dark); background: var(--indigo-light); border-radius: 6px; padding: 3px 9px; min-width: 240px; flex-shrink: 0; }
+  .rdesc { color: var(--slate-600); flex: 1; }
+  .rrow.nr2 { background: #f0fdf4; }
+  .rrow.nr2 .rpath { background: #dcfce7; color: #065f46; }
+
+  /* DB SCHEMA */
+  .schema-box { background: var(--slate-900); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  .schema-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--slate-400); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .schema-title span { background: var(--indigo); color: white; border-radius: 5px; padding: 2px 8px; font-size: 10px; }
+  .fr { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 12px; }
+  .fr:last-child { border-bottom: none; }
+  .fn2 { color: #93c5fd; font-family: monospace; min-width: 145px; flex-shrink: 0; }
+  .ft2 { color: #c084fc; font-family: monospace; min-width: 125px; flex-shrink: 0; }
+  .fc2 { color: #64748b; font-style: italic; font-size: 11px; }
+  .fk { color: #6ee7b7; font-size: 10px; font-weight: 700; padding: 0 4px; flex-shrink: 0; }
+  .constraint { margin-top: 10px; font-size: 11px; color: #f9a8d4; font-family: monospace; }
+
+  /* PHONE MOCKUP */
+  .phone { width: 272px; background: #1e1b4b; border-radius: 36px; padding: 11px; box-shadow: 0 20px 60px rgba(0,0,0,.4); margin: 0 auto; }
+  .screen { background: var(--slate-50); border-radius: 27px; overflow: hidden; min-height: 500px; }
+  .ph { padding: 18px 16px 14px; color: white; background: linear-gradient(135deg, #4338ca, #7c3aed); }
+  .ph-t { font-size: 14px; font-weight: 700; }
+  .ph-s { font-size: 10px; opacity: .72; margin-top: 2px; }
+  .pb { padding: 10px; }
+
+  /* CALENDAR CARD UI */
+  .cc { background: white; border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .cdh { background: var(--slate-100); padding: 6px 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--slate-500); }
+  .cdh.today { background: var(--indigo-light); color: var(--indigo-dark); }
+  .cds { padding: 4px 10px 8px; }
+  .csec { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--slate-400); margin: 6px 0 3px; }
+  .cev { display: flex; align-items: flex-start; gap: 7px; padding: 2px 0; }
+  .cdot { width: 7px; height: 7px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+  .cet { font-size: 10px; color: var(--slate-700); font-weight: 600; }
+  .ces { font-size: 9px; color: var(--slate-400); }
+  .ai-chip { display: inline-flex; align-items: center; gap: 3px; background: var(--indigo-light); border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 7px; font-size: 9px; font-weight: 600; color: var(--indigo-dark); margin-top: 3px; }
+
+  /* HABIT GRID IN CALENDAR */
+  .hg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px 0; }
+  .hi { background: var(--slate-100); border-radius: 7px; padding: 5px 7px; display: flex; align-items: center; gap: 5px; }
+  .hi.done { background: var(--emerald-light); }
+  .hchk { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--slate-300); display: flex; align-items: center; justify-content: center; font-size: 8px; flex-shrink: 0; }
+  .hchk.c { background: var(--emerald); border-color: var(--emerald); color: white; }
+  .hn { font-size: 9.5px; font-weight: 600; color: var(--slate-700); }
+  .hn.done { color: #065f46; }
+
+  /* TODO IN CALENDAR */
+  .ti { display: flex; align-items: center; gap: 5px; padding: 2px 0; }
+  .tchk { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--slate-300); flex-shrink: 0; }
+  .tchk.c { background: var(--indigo); border-color: var(--indigo); }
+  .tt { font-size: 10px; color: var(--slate-700); flex: 1; }
+  .tt.done { text-decoration: line-through; color: var(--slate-400); }
+  .tpri { font-size: 8px; font-weight: 700; border-radius: 4px; padding: 1px 5px; }
+  .ph-red { background: #fee2e2; color: #991b1b; }
+  .ph-yellow { background: #fef9c3; color: #713f12; }
+
+  /* CHAT BUBBLES */
+  .bbl { border-radius: 14px; padding: 10px 13px; font-size: 12px; line-height: 1.5; max-width: 85%; margin-bottom: 8px; }
+  .bbl-u { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+  .bbl-a { background: white; border: 1px solid var(--slate-200); color: var(--slate-700); border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .ac { background: var(--indigo-light); border: 1px solid #c7d2fe; border-radius: 9px; padding: 8px 11px; margin-top: 6px; font-size: 11px; }
+  .ac-l { font-weight: 700; color: var(--indigo-dark); margin-bottom: 3px; }
+  .ac-d { color: #6d28d9; font-size: 10px; }
+  .ac-b { display: inline-block; margin-top: 5px; background: var(--indigo); color: white; border-radius: 6px; padding: 3px 10px; font-size: 10px; font-weight: 700; }
+
+  /* HABIT CHECK-IN MOCK */
+  .hcard { background: white; border-radius: 11px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--slate-200); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .hcard.done { border-color: #a7f3d0; }
+  .hcard-row { display: flex; align-items: center; gap: 8px; }
+  .hcard-name { font-size: 11px; font-weight: 700; flex: 1; }
+  .hcard-sub { font-size: 9px; color: var(--slate-400); margin-top: 1px; }
+  .hchk-big { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--slate-300); display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+  .hchk-big.c { background: var(--emerald); border-color: var(--emerald); color: white; font-weight: 800; }
+  .prog { margin-top: 6px; height: 4px; background: var(--slate-200); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; background: linear-gradient(90deg, var(--indigo), var(--violet)); border-radius: 4px; }
+  .cnt-btns { display: flex; flex-direction: column; gap: 2px; }
+  .cnt-btn { width: 20px; height: 20px; background: var(--slate-100); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--slate-600); }
+
+  @media(max-width:640px){ .hero { padding: 44px 20px 40px; } .page { padding: 0 16px 80px; } .section { margin-top: 52px; } }
+  footer { background: var(--slate-900); color: var(--slate-400); text-align: center; padding: 28px; font-size: 12px; margin-top: 80px; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="badge">Technical Design · v3.0</div>
+    <h1>Calendar · Habits · To-Do</h1>
+    <p>Complete frontend, backend, and database design for three new features built on top of the existing LPMIS architecture — single unified approach.</p>
+    <div class="pill-row">
+      <span class="pill">📅 Calendar View</span>
+      <span class="pill">✅ Habit Tracker</span>
+      <span class="pill">📋 To-Do List</span>
+      <span class="pill">🤖 AI Scheduling</span>
+      <span class="pill">👥 Personal + Group</span>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <a href="#overview">Overview</a>
+  <a href="#database">Database</a>
+  <a href="#backend">Backend</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#ui">UI Design</a>
+  <a href="#ai">AI Agent</a>
+  <a href="#dataflow">Data Flow</a>
+  <a href="#phases">Phases</a>
+  <a href="#summary">Summary</a>
+</nav>
+
+<div class="page">
+
+<!-- ════════════════════════════════════
+     OVERVIEW
+════════════════════════════════════ -->
+<div class="section" id="overview">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--indigo-light);">🗺️</div>
+    <div><h2>Overview</h2><div class="sub">Current system baseline and what is being added</div></div>
+  </div>
+
+  <div class="g2" style="margin-bottom:20px;">
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">Existing — What's Already Built</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div style="font-size:16px;width:24px;text-align:center;flex-shrink:0;">💸</div><div><div style="font-weight:600;font-size:14px;">Money Transactions</div><div style="font-size:12px;color:var(--slate-600);">Income &amp; expense, personal + group scoped</div></div></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div style="font-size:16px;width:24px;text-align:center;flex-shrink:0;">📦</div><div><div style="font-weight:600;font-size:14px;">Home Stocks</div><div style="font-size:12px;color:var(--slate-600);">Inventory with categories</div></div></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div style="font-size:16px;width:24px;text-align:center;flex-shrink:0;">🛒</div><div><div style="font-weight:600;font-size:14px;">To-Buy Cart</div><div style="font-size:12px;color:var(--slate-600);">Shopping wishlist by store</div></div></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div style="font-size:16px;width:24px;text-align:center;flex-shrink:0;">📓</div><div><div style="font-weight:600;font-size:14px;">Daily Notes</div><div style="font-size:12px;color:var(--slate-600);">Date-keyed free text, AI rewrite</div></div></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div style="font-size:16px;width:24px;text-align:center;flex-shrink:0;">🤖</div><div><div style="font-weight:600;font-size:14px;">HomieAgent AI Chat</div><div style="font-size:12px;color:var(--slate-600);">LangGraph agent, DB context, action cards</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">New — Three Feature Pillars</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="border-left:3px solid var(--emerald);padding-left:12px;"><div style="font-weight:700;font-size:14px;">Habit Tracker</div><div style="font-size:12px;color:var(--slate-600);">User-defined habits tracked daily. Boolean (done/not) or quantifiable (e.g. 8 glasses). Stored in two tables: definition + daily log.</div></div>
+        <div style="border-left:3px solid var(--teal);padding-left:12px;"><div style="font-weight:700;font-size:14px;">Unified Calendar</div><div style="font-size:12px;color:var(--slate-600);">Scrollable date cards combining scheduled events, habit status, and to-dos — no grid. AI reads notes and suggests calendar entries.</div></div>
+        <div style="border-left:3px solid var(--amber);padding-left:12px;"><div style="font-weight:700;font-size:14px;">To-Do List</div><div style="font-size:12px;color:var(--slate-600);">Discrete tasks with title, optional due date, and priority. Full CRUD. Appear inside calendar cards on their due date.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout ci">
+    <div class="callout-ico">⚡</div>
+    <div>
+      <h4>Design Principle — Extend, Don't Break</h4>
+      <p>All three features follow the same patterns already in the codebase: dual-scope (user vs group), UUID primary keys, mutual-exclusivity CHECK constraints, client-side TTL cache with prefix invalidation, and LangGraph embedded protocol blocks for AI action cards. No existing code is deleted — only extended.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     DATABASE
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="database">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--amber-light);">🗄️</div>
+    <div><h2>Database Design</h2><div class="sub">Four new Supabase (PostgreSQL) tables — all following the existing mutual-exclusivity pattern</div></div>
+  </div>
+
+  <div class="callout ca" style="margin-bottom:24px;">
+    <div class="callout-ico">💡</div>
+    <div>
+      <h4>Two-Table Pattern for Habits</h4>
+      <p>Habit tracking uses two tables: one for the <strong>habit definition</strong> (what the user wants to track — configured once) and one for the <strong>daily log</strong> (did they complete it today). This is the standard approach. A single JSON column would make streak queries and history filtering very difficult.</p>
+    </div>
+  </div>
+
+  <!-- homedash_habit -->
+  <div class="schema-box">
+    <div class="schema-title">Table 1 <span>homedash_habit</span> — Habit Definitions</div>
+    <div class="fr"><div class="fn2">habit_id</div><div class="ft2">UUID</div><div class="fk">PK</div><div class="fc2">gen_random_uuid()</div></div>
+    <div class="fr"><div class="fn2">name</div><div class="ft2">VARCHAR(100)</div><div class="fc2">NOT NULL — e.g. "Drink Water", "Exercise", "Read"</div></div>
+    <div class="fr"><div class="fn2">description</div><div class="ft2">TEXT</div><div class="fc2">NULLABLE — optional detail</div></div>
+    <div class="fr"><div class="fn2">frequency</div><div class="ft2">VARCHAR(20)</div><div class="fc2">NOT NULL — "daily" | "weekdays" | "weekends" | "weekly"</div></div>
+    <div class="fr"><div class="fn2">target_value</div><div class="ft2">INTEGER</div><div class="fc2">NULLABLE — e.g. 8 (glasses), 30 (minutes). NULL = boolean habit (done / not done)</div></div>
+    <div class="fr"><div class="fn2">unit</div><div class="ft2">VARCHAR(30)</div><div class="fc2">NULLABLE — e.g. "glasses", "minutes", "pages". Required when target_value is set</div></div>
+    <div class="fr"><div class="fn2">is_active</div><div class="ft2">BOOLEAN</div><div class="fc2">DEFAULT true — soft delete; hides habit without losing log history</div></div>
+    <div class="fr"><div class="fn2">sort_order</div><div class="ft2">INTEGER</div><div class="fc2">DEFAULT 0 — user-controlled display order in check-in list</div></div>
+    <div class="fr"><div class="fn2">created_at</div><div class="ft2">TIMESTAMPTZ</div><div class="fc2">DEFAULT now()</div></div>
+    <div class="fr"><div class="fn2">user_id</div><div class="ft2">BIGINT</div><div class="fk">FK</div><div class="fc2">NULLABLE → homedash_user(user_id)</div></div>
+    <div class="fr"><div class="fn2">group_id</div><div class="ft2">UUID</div><div class="fk">FK</div><div class="fc2">NULLABLE → homedash_group(group_id)</div></div>
+    <div class="constraint">CONSTRAINT ck_habit_owner CHECK ((user_id IS NOT NULL)::int + (group_id IS NOT NULL)::int = 1)</div>
+  </div>
+
+  <!-- homedash_habit_log -->
+  <div class="schema-box">
+    <div class="schema-title">Table 2 <span>homedash_habit_log</span> — Daily Tracking Entries</div>
+    <div class="fr"><div class="fn2">log_id</div><div class="ft2">UUID</div><div class="fk">PK</div><div class="fc2">gen_random_uuid()</div></div>
+    <div class="fr"><div class="fn2">habit_id</div><div class="ft2">UUID</div><div class="fk">FK</div><div class="fc2">NOT NULL → homedash_habit(habit_id) ON DELETE CASCADE</div></div>
+    <div class="fr"><div class="fn2">date</div><div class="ft2">VARCHAR(10)</div><div class="fc2">NOT NULL — YYYY-MM-DD (same format as notes)</div></div>
+    <div class="fr"><div class="fn2">completed</div><div class="ft2">BOOLEAN</div><div class="fc2">DEFAULT false — used by boolean habits</div></div>
+    <div class="fr"><div class="fn2">value</div><div class="ft2">INTEGER</div><div class="fc2">NULLABLE — actual logged value for quantifiable habits (e.g. 6 out of 8 glasses)</div></div>
+    <div class="fr"><div class="fn2">logged_at</div><div class="ft2">TIMESTAMPTZ</div><div class="fc2">DEFAULT now()</div></div>
+    <div class="constraint">UNIQUE (habit_id, date) — one log per habit per day; enables UPSERT pattern</div>
+  </div>
+
+  <!-- homedash_todo -->
+  <div class="schema-box">
+    <div class="schema-title">Table 3 <span>homedash_todo</span> — To-Do Items</div>
+    <div class="fr"><div class="fn2">todo_id</div><div class="ft2">UUID</div><div class="fk">PK</div><div class="fc2">gen_random_uuid()</div></div>
+    <div class="fr"><div class="fn2">title</div><div class="ft2">VARCHAR(300)</div><div class="fc2">NOT NULL</div></div>
+    <div class="fr"><div class="fn2">description</div><div class="ft2">TEXT</div><div class="fc2">NULLABLE</div></div>
+    <div class="fr"><div class="fn2">due_date</div><div class="ft2">VARCHAR(10)</div><div class="fc2">NULLABLE — YYYY-MM-DD. Todos surface in the calendar card for that date</div></div>
+    <div class="fr"><div class="fn2">priority</div><div class="ft2">VARCHAR(10)</div><div class="fc2">DEFAULT 'medium' — "low" | "medium" | "high"</div></div>
+    <div class="fr"><div class="fn2">completed</div><div class="ft2">BOOLEAN</div><div class="fc2">DEFAULT false</div></div>
+    <div class="fr"><div class="fn2">completed_at</div><div class="ft2">TIMESTAMPTZ</div><div class="fc2">NULLABLE — stamped when completed is set to true</div></div>
+    <div class="fr"><div class="fn2">created_at</div><div class="ft2">TIMESTAMPTZ</div><div class="fc2">DEFAULT now()</div></div>
+    <div class="fr"><div class="fn2">user_id</div><div class="ft2">BIGINT</div><div class="fk">FK</div><div class="fc2">NULLABLE → homedash_user(user_id)</div></div>
+    <div class="fr"><div class="fn2">group_id</div><div class="ft2">UUID</div><div class="fk">FK</div><div class="fc2">NULLABLE → homedash_group(group_id)</div></div>
+    <div class="constraint">CONSTRAINT ck_todo_owner CHECK ((user_id IS NOT NULL)::int + (group_id IS NOT NULL)::int = 1)</div>
+  </div>
+
+  <!-- homedash_calendar -->
+  <div class="schema-box">
+    <div class="schema-title">Table 4 <span>homedash_calendar</span> — Scheduled Events</div>
+    <div class="fr"><div class="fn2">event_id</div><div class="ft2">UUID</div><div class="fk">PK</div><div class="fc2">gen_random_uuid()</div></div>
+    <div class="fr"><div class="fn2">title</div><div class="ft2">VARCHAR(200)</div><div class="fc2">NOT NULL</div></div>
+    <div class="fr"><div class="fn2">description</div><div class="ft2">TEXT</div><div class="fc2">NULLABLE</div></div>
+    <div class="fr"><div class="fn2">date</div><div class="ft2">VARCHAR(10)</div><div class="fc2">NOT NULL — YYYY-MM-DD</div></div>
+    <div class="fr"><div class="fn2">time_start</div><div class="ft2">VARCHAR(5)</div><div class="fc2">NULLABLE — HH:MM</div></div>
+    <div class="fr"><div class="fn2">time_end</div><div class="ft2">VARCHAR(5)</div><div class="fc2">NULLABLE — HH:MM</div></div>
+    <div class="fr"><div class="fn2">created_at</div><div class="ft2">TIMESTAMPTZ</div><div class="fc2">DEFAULT now()</div></div>
+    <div class="fr"><div class="fn2">user_id</div><div class="ft2">BIGINT</div><div class="fk">FK</div><div class="fc2">NULLABLE → homedash_user(user_id)</div></div>
+    <div class="fr"><div class="fn2">group_id</div><div class="ft2">UUID</div><div class="fk">FK</div><div class="fc2">NULLABLE → homedash_group(group_id)</div></div>
+    <div class="constraint">CONSTRAINT ck_calendar_owner CHECK ((user_id IS NOT NULL)::int + (group_id IS NOT NULL)::int = 1)</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     BACKEND
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="backend">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--emerald-light);">🐍</div>
+    <div><h2>Backend API</h2><div class="sub">Four new FastAPI routers — all prefixed under /homedash via main_router</div></div>
+  </div>
+
+  <div class="g2" style="margin-bottom:20px;">
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">New / Updated Files</div>
+      <table>
+        <thead><tr><th>File</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr class="nr"><td><code>api/habit_router.py</code></td><td><span class="tag tn">new</span></td></tr>
+          <tr class="nr"><td><code>api/habit_log_router.py</code></td><td><span class="tag tn">new</span></td></tr>
+          <tr class="nr"><td><code>api/todo_router.py</code></td><td><span class="tag tn">new</span></td></tr>
+          <tr class="nr"><td><code>api/calendar_router.py</code></td><td><span class="tag tn">new</span></td></tr>
+          <tr><td><code>api/__init__.py</code></td><td><span class="tag tu">update</span></td></tr>
+          <tr><td><code>models/db_models.py</code></td><td><span class="tag tu">update</span></td></tr>
+          <tr><td><code>models/request_models.py</code></td><td><span class="tag tu">update</span></td></tr>
+          <tr><td><code>agent/state.py</code></td><td><span class="tag te">enhance</span></td></tr>
+          <tr><td><code>agent/nodes.py</code></td><td><span class="tag te">enhance</span></td></tr>
+          <tr><td><code>agent/prompts/generate.py</code></td><td><span class="tag te">enhance</span></td></tr>
+          <tr><td><code>agent/prompts/classify.py</code></td><td><span class="tag te">enhance</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Habit Log — UPSERT Design</div>
+      <div class="callout ce" style="margin-bottom:0;">
+        <div class="callout-ico">🔑</div>
+        <div>
+          <h4>Why UPSERT?</h4>
+          <p>A user tapping a habit checkbox should work whether they've logged today or not. <code>POST /habit-logs/upsert</code> uses PostgreSQL <code>INSERT ... ON CONFLICT (habit_id, date) DO UPDATE SET ...</code> — the client makes one call, always correct, no pre-check needed.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API ROUTES TABLES -->
+  <div class="card" style="margin-bottom:16px;">
+    <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Habit Routes — <code>/homedash/habits</code> &amp; <code>/homedash/habit-logs</code></div>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/habits/user/:userId</code></td><td>Active habits for user, ordered by sort_order</td></tr>
+        <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/habits/group/:groupId</code></td><td>Active habits for group</td></tr>
+        <tr><td><code style="color:var(--blue)">POST</code></td><td><code>/habits</code></td><td>Create habit definition</td></tr>
+        <tr><td><code style="color:var(--amber)">PUT</code></td><td><code>/habits/:habitId</code></td><td>Update habit (name, frequency, target, unit, sort_order)</td></tr>
+        <tr><td><code style="color:var(--amber)">PATCH</code></td><td><code>/habits/:habitId/archive</code></td><td>Soft delete — set is_active=false, history preserved</td></tr>
+        <tr><td><code style="color:var(--rose)">DELETE</code></td><td><code>/habits/:habitId</code></td><td>Hard delete + cascade deletes all logs</td></tr>
+        <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/habit-logs/user/:userId/date/:date</code></td><td>All habit logs for user on a given date</td></tr>
+        <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/habit-logs/user/:userId/range</code></td><td>Logs in date range — used to compute streaks client-side</td></tr>
+        <tr><td><code style="color:var(--violet)">POST</code></td><td><code>/habit-logs/upsert</code></td><td>Insert or update by (habit_id, date) — single call from check-in UI</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Todo Routes — <code>/homedash/todos</code></div>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/todos/user/:userId</code></td><td>All todos for user</td></tr>
+          <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/todos/group/:groupId</code></td><td>All todos for group</td></tr>
+          <tr><td><code style="color:var(--blue)">POST</code></td><td><code>/todos</code></td><td>Create todo</td></tr>
+          <tr><td><code style="color:var(--amber)">PUT</code></td><td><code>/todos/:todoId</code></td><td>Update title, due_date, priority, description</td></tr>
+          <tr><td><code style="color:var(--amber)">PATCH</code></td><td><code>/todos/:todoId/complete</code></td><td>Toggle completed + stamp completed_at</td></tr>
+          <tr><td><code style="color:var(--rose)">DELETE</code></td><td><code>/todos/:todoId</code></td><td>Delete todo</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Calendar Routes — <code>/homedash/calendar</code></div>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/calendar/user/:userId</code></td><td>All events for user</td></tr>
+          <tr><td><code style="color:var(--emerald)">GET</code></td><td><code>/calendar/group/:groupId</code></td><td>All events for group</td></tr>
+          <tr><td><code style="color:var(--blue)">POST</code></td><td><code>/calendar</code></td><td>Create event</td></tr>
+          <tr><td><code style="color:var(--amber)">PUT</code></td><td><code>/calendar/:eventId</code></td><td>Update event</td></tr>
+          <tr><td><code style="color:var(--rose)">DELETE</code></td><td><code>/calendar/:eventId</code></td><td>Delete event</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     FRONTEND
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="frontend">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--blue-light);">⚛️</div>
+    <div><h2>Frontend Design</h2><div class="sub">Routes, pages, components, TypeScript types, and API wrappers</div></div>
+  </div>
+
+  <!-- ROUTES -->
+  <div class="card" style="margin-bottom:20px;">
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Complete Route Table</div>
+    <div style="font-size:12px;color:var(--slate-500);margin-bottom:16px;">Green rows are new</div>
+    <div class="rrow"><div class="rpath">/</div><div class="rdesc">HomePage</div><span class="tag tu">existing</span></div>
+    <div class="rrow"><div class="rpath">/personal</div><div class="rdesc">PersonalPage — Transactions / Stocks / Carts / Notes + Habits + Calendar header buttons</div><span class="tag tu">updated</span></div>
+    <div class="rrow"><div class="rpath">/personal/notes</div><div class="rdesc">PersonalNotesPage</div><span class="tag tu">existing</span></div>
+    <div class="rrow nr2"><div class="rpath">/personal/habits</div><div class="rdesc">PersonalHabitsPage — daily check-in for user habits</div><span class="tag tn">new</span></div>
+    <div class="rrow nr2"><div class="rpath">/personal/habits/config</div><div class="rdesc">HabitConfigPage — add / edit / archive habits</div><span class="tag tn">new</span></div>
+    <div class="rrow nr2"><div class="rpath">/personal/calendar</div><div class="rdesc">PersonalCalendarPage — unified scrollable cards: events + habits + todos</div><span class="tag tn">new</span></div>
+    <div class="rrow nr2"><div class="rpath">/personal/todos</div><div class="rdesc">PersonalTodosPage — standalone to-do list</div><span class="tag tn">new</span></div>
+    <div class="rrow"><div class="rpath">/groups</div><div class="rdesc">GroupsPage</div><span class="tag tu">existing</span></div>
+    <div class="rrow"><div class="rpath">/groups/:groupId</div><div class="rdesc">GroupPage — tabs + Habits + Calendar header buttons</div><span class="tag tu">updated</span></div>
+    <div class="rrow"><div class="rpath">/groups/:groupId/notes</div><div class="rdesc">GroupNotesPage</div><span class="tag tu">existing</span></div>
+    <div class="rrow nr2"><div class="rpath">/groups/:groupId/habits</div><div class="rdesc">GroupHabitsPage — group daily check-in</div><span class="tag tn">new</span></div>
+    <div class="rrow nr2"><div class="rpath">/groups/:groupId/habits/config</div><div class="rdesc">Group habit configuration</div><span class="tag tn">new</span></div>
+    <div class="rrow nr2"><div class="rpath">/groups/:groupId/calendar</div><div class="rdesc">GroupCalendarPage — group unified calendar</div><span class="tag tn">new</span></div>
+    <div class="rrow nr2"><div class="rpath">/groups/:groupId/todos</div><div class="rdesc">GroupTodosPage — group to-do list</div><span class="tag tn">new</span></div>
+    <div class="rrow"><div class="rpath">/chat</div><div class="rdesc">ChatPage — HomieAgent</div><span class="tag tu">existing</span></div>
+  </div>
+
+  <!-- COMPONENTS -->
+  <div class="g2" style="margin-bottom:20px;">
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">New Components</div>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>HabitCheckInGrid.tsx</code></td><td>Today's habits — tap to complete, +/− for quantifiable habits</td></tr>
+          <tr><td><code>HabitFormModal.tsx</code></td><td>Create/edit habit: name, description, frequency, target + unit</td></tr>
+          <tr><td><code>CalendarView.tsx</code></td><td>Scrollable date cards — merges events, habits, todos by date client-side</td></tr>
+          <tr><td><code>CalendarDateCard.tsx</code></td><td>Single date card: events section, habits grid, todos list</td></tr>
+          <tr><td><code>AddEventModal.tsx</code></td><td>Create/edit calendar event: title, date, time-start, time-end</td></tr>
+          <tr><td><code>TodoList.tsx</code></td><td>Full to-do list with filter tabs (All / Active / Done)</td></tr>
+          <tr><td><code>TodoFormModal.tsx</code></td><td>Create/edit todo: title, due date, priority</td></tr>
+          <tr><td><code>PersonalCalendarPage.tsx</code></td><td>Calendar page — user scope</td></tr>
+          <tr><td><code>GroupCalendarPage.tsx</code></td><td>Calendar page — group scope</td></tr>
+          <tr><td><code>PersonalHabitsPage.tsx</code></td><td>Habit check-in — user scope</td></tr>
+          <tr><td><code>GroupHabitsPage.tsx</code></td><td>Habit check-in — group scope</td></tr>
+          <tr><td><code>HabitConfigPage.tsx</code></td><td>Add / edit / archive / reorder habits</td></tr>
+          <tr><td><code>PersonalTodosPage.tsx</code></td><td>Standalone todo page — user scope</td></tr>
+          <tr><td><code>GroupTodosPage.tsx</code></td><td>Standalone todo page — group scope</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Modified Existing Files</div>
+      <table>
+        <thead><tr><th>File</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td><code>App.tsx</code></td><td>Register 10 new routes</td></tr>
+          <tr><td><code>PersonalPage.tsx</code></td><td>Add Habits + Calendar buttons in header (alongside existing Notes button)</td></tr>
+          <tr><td><code>GroupPage.tsx</code></td><td>Add Habits + Calendar buttons in header</td></tr>
+          <tr><td><code>HomieAgent.tsx</code></td><td>Handle <code>habit</code>, <code>todo</code>, <code>calendar</code> action cards; dispatch to CRUD endpoints</td></tr>
+          <tr><td><code>types/dashboard.ts</code></td><td>Add Habit, HabitLog, Todo, CalendarEvent types; extend ActionSuggestion</td></tr>
+          <tr><td><code>lib/moneyApi.ts</code></td><td>Add API wrappers + cache for all habit, habit-log, todo, calendar endpoints</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TYPES -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px;">New TypeScript Types — <code>types/dashboard.ts</code></div>
+    <pre><span class="kw">type</span> <span class="tp">Habit</span> = {
+  habit_id:     <span class="tp">string</span>
+  name:         <span class="tp">string</span>
+  description:  <span class="tp">string</span> | <span class="tp">null</span>
+  frequency:    <span class="str">'daily'</span> | <span class="str">'weekdays'</span> | <span class="str">'weekends'</span> | <span class="str">'weekly'</span>
+  target_value: <span class="tp">number</span> | <span class="tp">null</span>  <span class="cm">// null = boolean habit</span>
+  unit:         <span class="tp">string</span> | <span class="tp">null</span>
+  is_active:    <span class="tp">boolean</span>
+  sort_order:   <span class="tp">number</span>
+  user_id?:     <span class="tp">number</span>
+  group_id?:    <span class="tp">string</span>
+}
+
+<span class="kw">type</span> <span class="tp">HabitLog</span> = {
+  log_id:    <span class="tp">string</span>
+  habit_id:  <span class="tp">string</span>
+  date:      <span class="tp">string</span>           <span class="cm">// YYYY-MM-DD</span>
+  completed: <span class="tp">boolean</span>
+  value:     <span class="tp">number</span> | <span class="tp">null</span>
+}
+
+<span class="kw">type</span> <span class="tp">Todo</span> = {
+  todo_id:      <span class="tp">string</span>
+  title:        <span class="tp">string</span>
+  description:  <span class="tp">string</span> | <span class="tp">null</span>
+  due_date:     <span class="tp">string</span> | <span class="tp">null</span>  <span class="cm">// YYYY-MM-DD</span>
+  priority:     <span class="str">'low'</span> | <span class="str">'medium'</span> | <span class="str">'high'</span>
+  completed:    <span class="tp">boolean</span>
+  completed_at: <span class="tp">string</span> | <span class="tp">null</span>
+  user_id?:     <span class="tp">number</span>
+  group_id?:    <span class="tp">string</span>
+}
+
+<span class="kw">type</span> <span class="tp">CalendarEvent</span> = {
+  event_id:    <span class="tp">string</span>
+  title:       <span class="tp">string</span>
+  description: <span class="tp">string</span> | <span class="tp">null</span>
+  date:        <span class="tp">string</span>          <span class="cm">// YYYY-MM-DD</span>
+  time_start:  <span class="tp">string</span> | <span class="tp">null</span>  <span class="cm">// HH:MM</span>
+  time_end:    <span class="tp">string</span> | <span class="tp">null</span>
+  user_id?:    <span class="tp">number</span>
+  group_id?:   <span class="tp">string</span>
+}
+
+<span class="cm">// Extended — entity now includes habit, todo, calendar</span>
+<span class="kw">type</span> <span class="tp">ActionSuggestion</span> = {
+  type:   <span class="str">'add'</span> | <span class="str">'update'</span> | <span class="str">'remove'</span>
+  entity: <span class="str">'transaction'</span> | <span class="str">'stock'</span> | <span class="str">'cart'</span> | <span class="str">'habit'</span> | <span class="str">'todo'</span> | <span class="str">'calendar'</span>
+  label:  <span class="tp">string</span>
+  data:   <span class="tp">Record</span>&lt;<span class="tp">string</span>, <span class="tp">unknown</span>&gt;
+}</pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     UI DESIGN
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="ui">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:#fdf4ff;">🎨</div>
+    <div><h2>UI Design</h2><div class="sub">Unified calendar view, habit check-in, and AI action cards</div></div>
+  </div>
+
+  <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;justify-content:center;margin-bottom:28px;">
+
+    <!-- UNIFIED CALENDAR PHONE -->
+    <div>
+      <div style="font-size:13px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--slate-600);">Unified Calendar — Scrollable Cards</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="ph">
+            <div class="ph-t">My Calendar</div>
+            <div class="ph-s">Events · Habits · Todos</div>
+          </div>
+          <div class="pb">
+            <!-- TODAY -->
+            <div class="cc">
+              <div class="cdh today">Today · Fri 29 Aug</div>
+              <div class="cds">
+                <div class="csec">Events</div>
+                <div class="cev"><div class="cdot" style="background:var(--indigo);"></div><div><div class="cet">Team standup</div><div class="ces">09:00 – 09:30</div></div></div>
+                <div class="cev"><div class="cdot" style="background:var(--amber);"></div><div><div class="cet">Buy groceries</div><div class="ces">14:00 – 15:00</div><div class="ai-chip">AI suggested</div></div></div>
+
+                <div class="csec">Habits (3/4)</div>
+                <div class="hg">
+                  <div class="hi done"><div class="hchk c">✓</div><div class="hn done">Meditate</div></div>
+                  <div class="hi done"><div class="hchk c">✓</div><div class="hn done">Exercise</div></div>
+                  <div class="hi"><div class="hchk"></div><div class="hn">Read</div></div>
+                  <div class="hi done"><div class="hchk c">✓</div><div class="hn done">Water 6/8</div></div>
+                </div>
+
+                <div class="csec">Todos</div>
+                <div class="ti"><div class="tchk c"></div><div class="tt done">Buy groceries</div></div>
+                <div class="ti"><div class="tchk"></div><div class="tt">Pay bill</div><div class="tpri ph-red">High</div></div>
+              </div>
+            </div>
+
+            <!-- TOMORROW -->
+            <div class="cc">
+              <div class="cdh">Sat 30 Aug</div>
+              <div class="cds">
+                <div class="csec">Habits (0/2)</div>
+                <div class="hg">
+                  <div class="hi"><div class="hchk"></div><div class="hn">Read</div></div>
+                  <div class="hi"><div class="hchk"></div><div class="hn">Water</div></div>
+                </div>
+                <div class="csec">Todos</div>
+                <div class="ti"><div class="tchk"></div><div class="tt">Call bank</div><div class="tpri ph-yellow">Med</div></div>
+              </div>
+            </div>
+
+            <!-- SEP 1 -->
+            <div class="cc">
+              <div class="cdh">Mon 1 Sep</div>
+              <div class="cds">
+                <div class="csec">Events</div>
+                <div class="cev"><div class="cdot" style="background:var(--violet);"></div><div><div class="cet">Budget planning</div><div class="ces">All day · Group</div></div></div>
+                <div class="csec">Habits</div>
+                <div style="font-size:9px;color:var(--slate-400);padding:2px 0;">Not yet logged</div>
+              </div>
+            </div>
+
+            <div style="text-align:center;padding:6px 0;">
+              <div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--indigo),var(--violet));color:white;border-radius:9px;padding:7px 18px;font-size:10px;font-weight:700;">+ Add Event</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HABIT CHECK-IN PHONE -->
+    <div>
+      <div style="font-size:13px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--slate-600);">Daily Habit Check-In</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="ph">
+            <div class="ph-t">Today's Habits</div>
+            <div class="ph-s">Fri, 29 Aug · 3 / 4 done</div>
+          </div>
+          <div class="pb">
+            <!-- Boolean done -->
+            <div class="hcard done">
+              <div class="hcard-row">
+                <div style="flex:1;"><div class="hcard-name" style="color:#065f46;">Meditate</div><div class="hcard-sub">Done</div></div>
+                <div style="font-size:10px;font-weight:700;color:var(--amber);margin-right:8px;">🔥 12 days</div>
+                <div class="hchk-big c">✓</div>
+              </div>
+            </div>
+            <!-- Quantifiable in progress -->
+            <div class="hcard">
+              <div class="hcard-row">
+                <div style="flex:1;"><div class="hcard-name">Drink Water</div><div class="hcard-sub">6 / 8 glasses</div></div>
+                <div class="cnt-btns">
+                  <div class="cnt-btn">+</div>
+                  <div class="cnt-btn">−</div>
+                </div>
+              </div>
+              <div class="prog"><div class="prog-fill" style="width:75%;"></div></div>
+            </div>
+            <!-- Pending -->
+            <div class="hcard" style="opacity:.65;">
+              <div class="hcard-row">
+                <div style="flex:1;"><div class="hcard-name">Read</div><div class="hcard-sub">0 / 20 pages</div></div>
+                <div class="hchk-big"></div>
+              </div>
+            </div>
+            <!-- Boolean done -->
+            <div class="hcard done">
+              <div class="hcard-row">
+                <div style="flex:1;"><div class="hcard-name" style="color:#065f46;">Exercise</div><div class="hcard-sub">Done · 5 day streak</div></div>
+                <div class="hchk-big c">✓</div>
+              </div>
+            </div>
+
+            <div style="text-align:center;margin-top:6px;">
+              <div style="display:inline-flex;align-items:center;gap:5px;background:var(--slate-100);color:var(--slate-600);border-radius:8px;padding:6px 16px;font-size:10px;font-weight:700;">Manage Habits</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI CHAT PHONE -->
+    <div>
+      <div style="font-size:13px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--slate-600);">HomieAgent — Calendar Action Cards</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="ph">
+            <div class="ph-t">HomieAgent</div>
+            <div class="ph-s">AI assistant · Your data</div>
+          </div>
+          <div class="pb">
+            <div style="display:flex;justify-content:flex-end;"><div class="bbl bbl-u">What's in my notes this week?</div></div>
+            <div class="bbl bbl-a">
+              Your Thursday note says:<br><br>
+              <strong>"Need to buy vegetables and pay electricity bill before the weekend."</strong><br><br>
+              I found 2 tasks. Want me to schedule them?
+              <div class="ac">
+                <div class="ac-l">Add to Calendar</div>
+                <div class="ac-d">Buy vegetables · Sat 30 Aug · 10:00–11:00</div>
+                <div class="ac-b">✓ Add Event</div>
+              </div>
+              <div class="ac" style="margin-top:6px;">
+                <div class="ac-l">Add to Calendar</div>
+                <div class="ac-d">Pay electricity bill · Sat 30 Aug · 11:00–11:30</div>
+                <div class="ac-b">✓ Add Event</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:4px;"><div class="bbl bbl-u">Add the grocery one</div></div>
+            <div class="bbl bbl-a">Done! "Buy vegetables" is on your calendar for Saturday 10:00 AM. ✅</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="g2">
+    <div class="callout ct">
+      <div class="callout-ico">🃏</div>
+      <div>
+        <h4>Calendar Card Design Principles</h4>
+        <p>Cards are grouped by date with a date header. Today's card is highlighted. Within a date, sections appear in order: Events → Habits → Todos. Habits are shown as a 2-column mini-grid with checkboxes. Todos show priority chips. Events show time + title. All-day events come first. The view is purely vertical scroll — no grid, no month view.</p>
+      </div>
+    </div>
+    <div class="callout ce">
+      <div class="callout-ico">✅</div>
+      <div>
+        <h4>Habit Card Design</h4>
+        <p>Boolean habits: one tap on the circle marks done. Quantifiable habits: +/− buttons update the value; a progress bar shows current vs target. Streak count is shown inline as text (e.g. "🔥 12 days") — computed client-side from the log range response. No icon picker, no color picker — name and type are sufficient.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     AI AGENT
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="ai">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--violet-light);">🤖</div>
+    <div><h2>AI Agent Enhancements</h2><div class="sub">HomieAgent gains awareness of habits, todos, and calendar — same LangGraph pattern, extended</div></div>
+  </div>
+
+  <div class="g2" style="margin-bottom:20px;">
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">New Intents — <code>agent/state.py</code></div>
+      <table>
+        <thead><tr><th>Intent</th><th>Triggered When</th></tr></thead>
+        <tbody>
+          <tr><td><code>HABIT_QUERY</code></td><td>"How's my streak?", "Did I exercise this week?"</td></tr>
+          <tr><td><code>HABIT_LOG</code></td><td>"Log 7 glasses of water", "Mark meditation done"</td></tr>
+          <tr><td><code>TODO_ADD</code></td><td>"Add a todo to call the bank"</td></tr>
+          <tr><td><code>TODO_QUERY</code></td><td>"What's on my to-do list?", "Any overdue tasks?"</td></tr>
+          <tr><td><code>CALENDAR_ADD</code></td><td>"Schedule a meeting on Friday", or AI detects task in notes</td></tr>
+          <tr><td><code>EXTRACT_TODOS</code></td><td>AI reads notes and surfaces tasks as todo/calendar suggestions</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Graph Node Changes — <code>agent/nodes.py</code></div>
+      <table>
+        <thead><tr><th>Node</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td><code>classify_intent</code></td><td>Add rules for scheduling language, TODO extraction, habit queries. Add <code>habit</code>, <code>todo</code>, <code>calendar</code> as valid entities.</td></tr>
+          <tr><td><code>fetch_data</code></td><td>Branch on entity: <code>habit</code> → fetch habits + logs; <code>todo</code> → fetch todos; <code>calendar</code> → fetch notes + upcoming events (to avoid duplicates)</td></tr>
+          <tr><td><code>generate_response</code></td><td>System prompt extended with CALENDAR_PROTOCOL and TODO_PROTOCOL — LLM embeds suggestion JSON blocks</td></tr>
+          <tr><td><code>build_action_cards</code></td><td>Parse <code>CALENDAR_SUGGESTIONS:</code> and <code>TODO_SUGGESTIONS:</code> blocks alongside existing <code>ACTION_SUGGESTIONS:</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px;">CALENDAR_PROTOCOL — embedded in <code>agent/prompts/generate.py</code></div>
+    <pre><span class="cm">"""
+CALENDAR_PROTOCOL:
+When you detect TODO items, tasks, or scheduling intent in the user's notes or message:
+1. Identify the task and estimate a date/time from note content and today's date.
+2. Embed a calendar suggestion block in your response:
+
+CALENDAR_SUGGESTIONS:
+[
+  {
+    "type": "add",
+    "entity": "calendar",
+    "label": "Schedule: Buy groceries",
+    "data": {
+      "title": "Buy groceries",
+      "description": "From note: need to pick up vegetables and dairy",
+      "date": "2026-09-01",
+      "time_start": "10:00",
+      "time_end": "11:00"
+    }
+  }
+]
+
+Rules:
+- Infer date from urgency cues ("tomorrow", "this weekend", "before Friday")
+- Default to a morning slot (09:00–10:00) if no time is mentioned
+- Never suggest an event that already appears in the provided calendar context
+"""</span>
+
+<span class="cm"># Same pattern as the existing ACTION_SUGGESTIONS and CART_SUGGESTIONS —
+# build_action_cards already parses embedded JSON blocks from the response text.</span></pre>
+  </div>
+
+  <div style="margin-top:16px;">
+    <div class="callout ci">
+      <div class="callout-ico">💡</div>
+      <div>
+        <h4>Why No Graph Rewiring Is Needed</h4>
+        <p>The agent already uses embedded protocol blocks for <code>ACTION_SUGGESTIONS</code> and <code>CART_SUGGESTIONS</code>. Calendar and todo suggestions follow the exact same pattern — just new block labels that <code>build_action_cards</code> learns to parse. The LangGraph graph structure itself is unchanged; only <code>fetch_data</code>, <code>generate_response</code>, and <code>build_action_cards</code> get new branches.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     DATA FLOW
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="dataflow">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--emerald-light);">🔄</div>
+    <div><h2>Data Flow</h2><div class="sub">End-to-end flows — manual creation and AI-assisted scheduling</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;">Manual Calendar Event / Todo / Habit Log</div>
+      <div class="tl">
+        <div class="tli"><div class="tl-dot"></div><h4>User taps action button</h4><p>"+ Add Event", "+ Add Todo", or habit check-in tap</p></div>
+        <div class="tli"><div class="tl-dot"></div><h4>Modal / inline UI</h4><p>User fills form fields and saves</p></div>
+        <div class="tli"><div class="tl-dot"></div><h4>API call via moneyApi wrapper</h4><p><code>POST /homedash/calendar</code> · <code>POST /homedash/todos</code> · <code>POST /homedash/habit-logs/upsert</code></p></div>
+        <div class="tli"><div class="tl-dot e"></div><h4>Cache invalidated</h4><p><code>apiCache.invalidate("calendar")</code> / <code>"todos"</code> / <code>"habit-logs"</code> → component re-fetches</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;">AI-Assisted Calendar Entry (Notes → Events)</div>
+      <div class="tl">
+        <div class="tli"><div class="tl-dot v"></div><h4>User asks HomieAgent about notes or tasks</h4><p>"What's on my list this week?"</p></div>
+        <div class="tli"><div class="tl-dot v"></div><h4>classify_intent → <code>EXTRACT_TODOS</code> / <code>CALENDAR_ADD</code></h4><p>Entity: <code>calendar</code>. Context: personal or group.</p></div>
+        <div class="tli"><div class="tl-dot v"></div><h4>fetch_data</h4><p>Notes (last 15 days) + upcoming calendar events (next 30 days) — prevents duplicate suggestions</p></div>
+        <div class="tli"><div class="tl-dot v"></div><h4>generate_response with CALENDAR_PROTOCOL</h4><p>LLM embeds <code>CALENDAR_SUGGESTIONS:</code> JSON with inferred dates + times from note content</p></div>
+        <div class="tli"><div class="tl-dot v"></div><h4>build_action_cards parses blocks</h4><p>Returns <code>action_suggestions</code> with <code>entity: "calendar"</code>, injects user_id / group_id</p></div>
+        <div class="tli"><div class="tl-dot v"></div><h4>Frontend renders action cards</h4><p>User taps "Add Event" on a suggestion card</p></div>
+        <div class="tli"><div class="tl-dot e"></div><h4>HomieAgent dispatches POST /homedash/calendar</h4><p>Same CRUD call as manual creation — cache invalidated, calendar view updates</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <div class="callout ct">
+      <div class="callout-ico">🧩</div>
+      <div>
+        <h4>Calendar View: Client-Side Data Merge</h4>
+        <p>On mount, <code>CalendarView</code> fires <strong>3 parallel calls</strong> via <code>Promise.allSettled</code>: <code>getCalendarEvents</code>, <code>getUserHabits + getHabitLogs(range)</code>, and <code>getTodos</code>. Each resolves independently — a failed call doesn't block the others. The client merges results into a <code>Map&lt;date, {events, habits, todos}&gt;</code> and renders the card list. No backend aggregation endpoint is needed.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PHASES
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="phases">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:#ffedd5;">📋</div>
+    <div><h2>Implementation Phases</h2><div class="sub">Build order — each phase independently testable and deployable</div></div>
+  </div>
+
+  <div class="g4" style="margin-bottom:20px;">
+    <div class="fcard fa">
+      <div class="ico">🗄️</div>
+      <h3>Phase 1 — Database</h3>
+      <p>Create all 4 tables in Supabase. Add SQLAlchemy ORM models and Pydantic schemas. Verify migrations.</p>
+    </div>
+    <div class="fcard fb">
+      <div class="ico">🐍</div>
+      <h3>Phase 2 — Backend</h3>
+      <p>Build all 4 routers. Add UPSERT for habit logs. Register in <code>__init__.py</code>. Test all endpoints directly.</p>
+    </div>
+    <div class="fcard fi">
+      <div class="ico">⚛️</div>
+      <h3>Phase 3 — Frontend</h3>
+      <p>Types → API wrappers → <code>HabitFormModal</code> → <code>HabitCheckInGrid</code> → <code>TodoList</code> → <code>CalendarView</code> → header buttons in existing pages.</p>
+    </div>
+    <div class="fcard fv">
+      <div class="ico">🤖</div>
+      <h3>Phase 4 — AI</h3>
+      <p>Extend agent state, intents, <code>fetch_data</code>, prompts, and <code>build_action_cards</code>. Update <code>HomieAgent.tsx</code> to dispatch new action card types.</p>
+    </div>
+  </div>
+
+  <div class="callout ce">
+    <div class="callout-ico">✅</div>
+    <div>
+      <h4>Phase 1–2 carry zero frontend risk</h4>
+      <p>The database migration and new API routes can be deployed to Vercel without any user-facing changes. Phase 3 adds UI against a live, tested API. Phase 4 enhances an already-working feature — the agent degrades gracefully if habit/todo context is empty.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     SUMMARY
+════════════════════════════════════ -->
+<hr />
+<div class="section" id="summary">
+  <div class="sec-hd">
+    <div class="sec-ico" style="background:var(--slate-100);">📋</div>
+    <div><h2>Full File Change Summary</h2><div class="sub">Every file — new, updated, or enhanced</div></div>
+  </div>
+
+  <div style="font-size:12px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Database (Supabase)</div>
+  <div class="card" style="margin-bottom:20px;">
+    <table>
+      <thead><tr><th>Migration</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr class="nr"><td><code>CREATE TABLE homedash_habit</code></td><td><span class="tag tn">new</span></td><td>name, description, frequency, target_value, unit, is_active, sort_order — no icon or color fields</td></tr>
+        <tr class="nr"><td><code>CREATE TABLE homedash_habit_log</code></td><td><span class="tag tn">new</span></td><td>habit_id, date, completed, value — UNIQUE(habit_id, date)</td></tr>
+        <tr class="nr"><td><code>CREATE TABLE homedash_todo</code></td><td><span class="tag tn">new</span></td><td>title, due_date, priority, completed, completed_at</td></tr>
+        <tr class="nr"><td><code>CREATE TABLE homedash_calendar</code></td><td><span class="tag tn">new</span></td><td>title, date, time_start, time_end</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="font-size:12px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Backend — server/</div>
+  <div class="card" style="margin-bottom:20px;">
+    <table>
+      <thead><tr><th>File</th><th>Status</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>models/db_models.py</code></td><td><span class="tag tu">update</span></td><td>Add Habit, HabitLog, Todo, CalendarEvent ORM models</td></tr>
+        <tr><td><code>models/request_models.py</code></td><td><span class="tag tu">update</span></td><td>Add Pydantic Create/Response/Update schemas for all 4 entities</td></tr>
+        <tr class="nr"><td><code>api/habit_router.py</code></td><td><span class="tag tn">new</span></td><td>CRUD + archive for habit definitions</td></tr>
+        <tr class="nr"><td><code>api/habit_log_router.py</code></td><td><span class="tag tn">new</span></td><td>UPSERT + range query for habit logs</td></tr>
+        <tr class="nr"><td><code>api/todo_router.py</code></td><td><span class="tag tn">new</span></td><td>CRUD + PATCH /complete for todos</td></tr>
+        <tr class="nr"><td><code>api/calendar_router.py</code></td><td><span class="tag tn">new</span></td><td>CRUD + scoped GETs for calendar events</td></tr>
+        <tr><td><code>api/__init__.py</code></td><td><span class="tag tu">update</span></td><td>Register all 4 new routers</td></tr>
+        <tr><td><code>agent/state.py</code></td><td><span class="tag te">enhance</span></td><td>Add HABIT_QUERY, HABIT_LOG, TODO_ADD, TODO_QUERY, CALENDAR_ADD intents; fetched_habits, fetched_todos, fetched_calendar state fields</td></tr>
+        <tr><td><code>agent/nodes.py</code></td><td><span class="tag te">enhance</span></td><td>fetch_data: habit/todo/calendar branches. build_action_cards: parse CALENDAR_SUGGESTIONS + TODO_SUGGESTIONS</td></tr>
+        <tr><td><code>agent/prompts/generate.py</code></td><td><span class="tag te">enhance</span></td><td>Add CALENDAR_PROTOCOL, TODO_PROTOCOL</td></tr>
+        <tr><td><code>agent/prompts/classify.py</code></td><td><span class="tag te">enhance</span></td><td>Classification rules for habit, todo, calendar scheduling intents</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="font-size:12px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Frontend — client/src/</div>
+  <div class="card">
+    <table>
+      <thead><tr><th>File</th><th>Status</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>types/dashboard.ts</code></td><td><span class="tag tu">update</span></td><td>Add Habit, HabitLog, Todo, CalendarEvent types; extend ActionSuggestion entity union</td></tr>
+        <tr><td><code>lib/moneyApi.ts</code></td><td><span class="tag tu">update</span></td><td>Add API wrappers + cache for all habit, habit-log, todo, calendar endpoints</td></tr>
+        <tr><td><code>App.tsx</code></td><td><span class="tag tu">update</span></td><td>Register 10 new routes</td></tr>
+        <tr><td><code>pages/PersonalPage.tsx</code></td><td><span class="tag tu">update</span></td><td>Add Habits + Calendar header buttons</td></tr>
+        <tr><td><code>pages/GroupPage.tsx</code></td><td><span class="tag tu">update</span></td><td>Add Habits + Calendar header buttons</td></tr>
+        <tr><td><code>components/HomieAgent.tsx</code></td><td><span class="tag te">enhance</span></td><td>Handle habit, todo, calendar action cards; dispatch to CRUD endpoints</td></tr>
+        <tr class="nr"><td><code>pages/PersonalHabitsPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Daily habit check-in — user scope</td></tr>
+        <tr class="nr"><td><code>pages/GroupHabitsPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Daily habit check-in — group scope</td></tr>
+        <tr class="nr"><td><code>pages/HabitConfigPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Add / edit / archive / reorder habits (shared via scope prop)</td></tr>
+        <tr class="nr"><td><code>pages/PersonalCalendarPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Unified calendar — user scope</td></tr>
+        <tr class="nr"><td><code>pages/GroupCalendarPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Unified calendar — group scope</td></tr>
+        <tr class="nr"><td><code>pages/PersonalTodosPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Standalone todo list — user scope</td></tr>
+        <tr class="nr"><td><code>pages/GroupTodosPage.tsx</code></td><td><span class="tag tn">new</span></td><td>Standalone todo list — group scope</td></tr>
+        <tr class="nr"><td><code>components/HabitCheckInGrid.tsx</code></td><td><span class="tag tn">new</span></td><td>Habit cards: boolean tap-to-complete, quantifiable +/− with progress bar, inline streak count</td></tr>
+        <tr class="nr"><td><code>components/HabitFormModal.tsx</code></td><td><span class="tag tn">new</span></td><td>Create/edit habit: name, description, frequency, target_value, unit</td></tr>
+        <tr class="nr"><td><code>components/CalendarView.tsx</code></td><td><span class="tag tn">new</span></td><td>Scrollable date card container — 3-way client merge of events + habits + todos</td></tr>
+        <tr class="nr"><td><code>components/CalendarDateCard.tsx</code></td><td><span class="tag tn">new</span></td><td>Single date card: events section, habits mini-grid, todos list</td></tr>
+        <tr class="nr"><td><code>components/AddEventModal.tsx</code></td><td><span class="tag tn">new</span></td><td>Create/edit calendar event</td></tr>
+        <tr class="nr"><td><code>components/TodoList.tsx</code></td><td><span class="tag tn">new</span></td><td>Full todo list with All / Active / Done filter tabs, priority sort</td></tr>
+        <tr class="nr"><td><code>components/TodoFormModal.tsx</code></td><td><span class="tag tn">new</span></td><td>Create/edit todo: title, description, due date, priority</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- end .page -->
+
+<footer>LPMIS — Technical Design v3.0 · Calendar · Habits · To-Do · 2026-08-29</footer>
+
+</body>
+</html>

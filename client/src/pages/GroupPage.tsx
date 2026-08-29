@@ -5,6 +5,9 @@ import SwapVertRoundedIcon from '@mui/icons-material/SwapVertRounded';
 import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import NoteAltRoundedIcon from '@mui/icons-material/NoteAltRounded';
+import ChecklistRoundedIcon from '@mui/icons-material/ChecklistRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import Transactions from '../components/Transactions';
@@ -237,12 +240,32 @@ export default function GroupPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{groupName || 'Group'}</h1>
         </div>
-        <Link
-          to={`/groups/${groupId}/notes`}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
-        >
-          <NoteAltRoundedIcon sx={{ fontSize: 18 }} /> Notes
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/groups/${groupId}/habits`}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-teal-700"
+          >
+            <ChecklistRoundedIcon sx={{ fontSize: 18 }} /> Habits
+          </Link>
+          <Link
+            to={`/groups/${groupId}/calendar`}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-blue-600 hover:to-indigo-700"
+          >
+            <CalendarMonthRoundedIcon sx={{ fontSize: 18 }} /> Calendar
+          </Link>
+          <Link
+            to={`/groups/${groupId}/todos`}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-amber-600 hover:to-orange-700"
+          >
+            <AssignmentRoundedIcon sx={{ fontSize: 18 }} /> Todos
+          </Link>
+          <Link
+            to={`/groups/${groupId}/notes`}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-indigo-700"
+          >
+            <NoteAltRoundedIcon sx={{ fontSize: 18 }} /> Notes
+          </Link>
+        </div>
       </header>
 
       {loading && <div className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>}

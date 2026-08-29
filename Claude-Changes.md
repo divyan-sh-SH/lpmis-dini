@@ -4,6 +4,80 @@ All modifications made by Claude are logged here, newest first.
 
 ---
 
+## 2026-08-29 — Full Feature Implementation: Habit Tracker, Calendar, To-Do List
+
+**Backend — new files:**
+- `server/models/db_models.py` — Added `Habit`, `HabitLog`, `Todo`, `CalendarEvent` ORM models (4 new tables with dual-scope CHECK constraints, UPSERT-ready unique constraint on HabitLog)
+- `server/models/request_models.py` — Added 12 new Pydantic schemas for all 4 entities (Create/Update/Response variants)
+- `server/api/habit_router.py` — Habit CRUD + archive endpoints (personal + group scoped)
+- `server/api/habit_log_router.py` — Habit log endpoints with PostgreSQL UPSERT (`ON CONFLICT DO UPDATE`)
+- `server/api/todo_router.py` — Todo CRUD + toggle-complete endpoints
+- `server/api/calendar_router.py` — Calendar event CRUD endpoints
+- `server/api/__init__.py` — Registered all 4 new routers under `/homedash/`
+
+**Backend — modified files:**
+- `server/agent/state.py` — Added 5 new intent constants (`HABIT_QUERY`, `HABIT_LOG`, `TODO_ADD`, `TODO_QUERY`, `CALENDAR_ADD`)
+- `server/agent/prompts/generate.py` — Added `CALENDAR_PROTOCOL` and `TODO_PROTOCOL` blocks
+- `server/agent/prompts/__init__.py` — Exported new protocol constants
+- `server/agent/nodes.py` — Extended `fetch_data` with habit/todo/calendar branches; added 4 format helpers; updated `generate_response` for multi-protocol output; rewrote `build_action_cards` to parse all 3 suggestion block types
+
+**Frontend — new files:**
+- `client/src/components/HabitFormModal.tsx` — Habit add/edit form (name, frequency grid, boolean/quantifiable toggle, target+unit)
+- `client/src/components/HabitCheckInGrid.tsx` — Daily habit check-in cards with streak computation and quantifiable +/− controls
+- `client/src/components/TodoFormModal.tsx` — Todo add/edit form (title, description, due date, priority)
+- `client/src/components/AddEventModal.tsx` — Calendar event add/edit form
+- `client/src/components/TodoList.tsx` — Todo list with filter tabs (All/Active/Done), priority chips, edit/delete/toggle
+- `client/src/components/CalendarDateCard.tsx` — Single date card with events, habits grid, todos list
+- `client/src/components/CalendarView.tsx` — Scrollable 37-day date range view, filters empty past dates, AddEventModal integration
+- `client/src/pages/PersonalHabitsPage.tsx` — Personal daily habit check-in page
+- `client/src/pages/GroupHabitsPage.tsx` — Group daily habit check-in page
+- `client/src/pages/HabitConfigPage.tsx` — Shared habit management page (scope prop: personal/group)
+- `client/src/pages/PersonalCalendarPage.tsx` — Personal unified calendar (events + habits + todos)
+- `client/src/pages/GroupCalendarPage.tsx` — Group unified calendar
+- `client/src/pages/PersonalTodosPage.tsx` — Personal to-do list page
+- `client/src/pages/GroupTodosPage.tsx` — Group to-do list page
+
+**Frontend — modified files:**
+- `client/src/types/dashboard.ts` — Added 12 new types; extended `ActionSuggestion.entity` union
+- `client/src/lib/moneyApi.ts` — Added ~220 lines: 24 new API wrappers with TTL cache for habits, habit logs, todos, calendar events
+- `client/src/App.tsx` — Added 8 new protected routes (personal + group variants for habits, calendar, todos)
+- `client/src/pages/PersonalPage.tsx` — Added Habits, Calendar, Todos navigation buttons
+- `client/src/pages/GroupPage.tsx` — Added Habits, Calendar, Todos navigation buttons
+- `client/src/components/HomieAgent.tsx` — Extended `entityConfig` and `handleAction` for `calendar`, `todo`, `habit` entities
+
+---
+
+## 2026-08-29 — Merged Technical Design + Release Plan into Single Document
+
+**Files modified:**
+- `Technical_Design.html` — Merged content from both `Technical_Design.html` and `Release_Plan.html` into one unified document. Removed `icon` and `color` fields from `homedash_habit` schema end-to-end (DB, types, components). Simplified Habit and To-Do sections. Added CALENDAR_PROTOCOL code block, manual + AI-assisted data flows, and existing system overview from Release_Plan.html. Now the single source of truth for the full feature plan.
+
+**Files deleted:**
+- `Release_Plan.html` — Removed after content was merged into `Technical_Design.html`.
+
+---
+
+## 2026-08-29 — Comprehensive Technical Design HTML (v3.0)
+
+**Files created:**
+- `Technical_Design.html` — Full technical design document covering all three new feature pillars: Calendar (unified view), Habit Tracker (dynamic), and To-Do List. Includes: database schemas for 4 new tables (homedash_habit, homedash_habit_log, homedash_todo, homedash_calendar with SQL), complete backend API routes for all 4 routers (including UPSERT pattern for habit logs), full frontend route table, all new/modified components with purpose, new TypeScript types, UI wireframes (config screen, daily check-in, unified calendar card view, to-do list), LangGraph agent enhancements (6 new intents, 3 new protocol blocks), client-side date-merge strategy for calendar, and 4-phase implementation plan with full file change summary (26 frontend files, 12 backend files).
+
+---
+
+## 2026-08-29 — Calendar Feature Release Plan HTML
+
+**Files created:**
+- `Release_Plan.html` — Self-contained visual release plan for the Calendar + AI Scheduling feature (v2.0). Covers: new features breakdown, full route table, frontend component list, new DB model (`homedash_calendar`), API routes, LangGraph agent enhancements (`CALENDAR_PROTOCOL`, `fetch_data` extension, `build_action_cards` parsing), UI wireframes (scrollable cards + AI action cards in chat), end-to-end data flows, and 4-phase implementation order.
+
+---
+
+## 2026-08-29 — Technical Architecture Document
+
+**Files created:**
+- `Architecture.md` — Technical architecture document covering frontend (React + Vite) and backend (FastAPI + LangGraph), including routing, API layer, database models, LangGraph agent graph flow, and end-to-end data flow diagrams.
+
+---
+
 ## 2026-05-14 — Stock ORM Fix + Partial Load on API Failure
 
 ### Changes

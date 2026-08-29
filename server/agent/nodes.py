@@ -17,8 +17,10 @@ from agent.prompts import (
     GENERAL_RESPONSE_SYSTEM,
     GREETING_SYSTEM,
     ACTION_PROTOCOL,
+    CALENDAR_PROTOCOL,
+    TODO_PROTOCOL,
 )
-from models.db_models import Stock, Cart, Transaction, Note
+from models.db_models import Stock, Cart, Transaction, Note, Habit, HabitLog, Todo, CalendarEvent
 
 
 _llm = ChatAnthropic(
@@ -235,6 +237,9 @@ def fetch_data(state: AgentState, config: RunnableConfig) -> dict:
     fetched: dict = {}
 
     is_notes_query = entity == "note" or intent == "extract_todos"
+    is_habit_query = entity == "habit" or intent in ("habit_query", "habit_log")
+    is_todo_query = entity == "todo" or intent in ("todo_add", "todo_query")
+    is_calendar_query = entity == "calendar" or intent == "calendar_add"
 
     def _group_uuid() -> Optional[UUID]:
         try:
@@ -243,7 +248,7 @@ def fetch_data(state: AgentState, config: RunnableConfig) -> dict:
             return None
 
     if context == "personal":
-        if is_notes_query:
+        if is_notes_query or is_calendar_query:
             notes = (
                 db.query(Note)
                 .filter(Note.user_id == user_id)
@@ -252,6 +257,30 @@ def fetch_data(state: AgentState, config: RunnableConfig) -> dict:
                 .all()
             )
             fetched["notes"] = _format_notes(notes)
+            if is_calendar_query:
+                events = (
+                    db.query(CalendarEvent)
+                    .filter(CalendarEvent.user_id == user_id)
+                    .order_by(CalendarEvent.date.asc())
+                    .all()
+                )
+                fetched["calendar_events"] = _format_calendar_events(events)
+        elif is_habit_query:
+            habits = db.query(Habit).filter(Habit.user_id == user_id, Habit.is_active == True).all()
+            fetched["habits"] = _format_habits(habits)
+            habit_ids = [h.habit_id for h in habits]
+            if habit_ids:
+                range_start = (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
+                range_end = datetime.utcnow().strftime("%Y-%m-%d")
+                logs = (
+                    db.query(HabitLog)
+                    .filter(HabitLog.habit_id.in_(habit_ids), HabitLog.date >= range_start, HabitLog.date <= range_end)
+                    .all()
+                )
+                fetched["habit_logs"] = _format_habit_logs(logs)
+        elif is_todo_query:
+            todos = db.query(Todo).filter(Todo.user_id == user_id).order_by(Todo.completed.asc(), Todo.created_at.desc()).all()
+            fetched["todos"] = _format_todos(todos)
         else:
             if entity in ("transaction", None):
                 txs = (
@@ -275,7 +304,7 @@ def fetch_data(state: AgentState, config: RunnableConfig) -> dict:
         if not group_uuid:
             return {"fetched_data": {}}
 
-        if is_notes_query:
+        if is_notes_query or is_calendar_query:
             notes = (
                 db.query(Note)
                 .filter(Note.group_id == group_uuid)
@@ -284,6 +313,30 @@ def fetch_data(state: AgentState, config: RunnableConfig) -> dict:
                 .all()
             )
             fetched["notes"] = _format_notes(notes)
+            if is_calendar_query:
+                events = (
+                    db.query(CalendarEvent)
+                    .filter(CalendarEvent.group_id == group_uuid)
+                    .order_by(CalendarEvent.date.asc())
+                    .all()
+                )
+                fetched["calendar_events"] = _format_calendar_events(events)
+        elif is_habit_query:
+            habits = db.query(Habit).filter(Habit.group_id == group_uuid, Habit.is_active == True).all()
+            fetched["habits"] = _format_habits(habits)
+            habit_ids = [h.habit_id for h in habits]
+            if habit_ids:
+                range_start = (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
+                range_end = datetime.utcnow().strftime("%Y-%m-%d")
+                logs = (
+                    db.query(HabitLog)
+                    .filter(HabitLog.habit_id.in_(habit_ids), HabitLog.date >= range_start, HabitLog.date <= range_end)
+                    .all()
+                )
+                fetched["habit_logs"] = _format_habit_logs(logs)
+        elif is_todo_query:
+            todos = db.query(Todo).filter(Todo.group_id == group_uuid).order_by(Todo.completed.asc(), Todo.created_at.desc()).all()
+            fetched["todos"] = _format_todos(todos)
         else:
             if entity in ("transaction", None):
                 txs = (
@@ -354,6 +407,57 @@ def _format_notes(notes) -> list[dict]:
     ]
 
 
+def _format_habits(habits) -> list[dict]:
+    return [
+        {
+            "habit_id": str(h.habit_id),
+            "name": h.name,
+            "frequency": h.frequency,
+            "target_value": h.target_value,
+            "unit": h.unit or "",
+        }
+        for h in habits
+    ]
+
+
+def _format_habit_logs(logs) -> list[dict]:
+    return [
+        {
+            "habit_id": str(l.habit_id),
+            "date": l.date,
+            "completed": l.completed,
+            "value": l.value,
+        }
+        for l in logs
+    ]
+
+
+def _format_todos(todos) -> list[dict]:
+    return [
+        {
+            "todo_id": str(t.todo_id),
+            "title": t.title,
+            "due_date": t.due_date or "",
+            "priority": t.priority,
+            "completed": t.completed,
+        }
+        for t in todos
+    ]
+
+
+def _format_calendar_events(events) -> list[dict]:
+    return [
+        {
+            "event_id": str(e.event_id),
+            "title": e.title,
+            "date": e.date,
+            "time_start": e.time_start or "",
+            "time_end": e.time_end or "",
+        }
+        for e in events
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Node: generate_response
 # ---------------------------------------------------------------------------
@@ -369,6 +473,10 @@ def generate_response(state: AgentState) -> dict:
     carts = fetched.get("cart", [])
     txs = fetched.get("transactions", [])
     notes = fetched.get("notes", [])
+    habits = fetched.get("habits", [])
+    habit_logs = fetched.get("habit_logs", [])
+    todos = fetched.get("todos", [])
+    calendar_events = fetched.get("calendar_events", [])
 
     stock_block = (
         "\n".join(
@@ -405,16 +513,59 @@ def generate_response(state: AgentState) -> dict:
         else "No notes available."
     )
 
+    # Build extra blocks for new entities
+    extra_blocks = ""
+    if habits:
+        log_by_habit = {}
+        for log in habit_logs:
+            log_by_habit.setdefault(log["habit_id"], []).append(log)
+        habit_lines = []
+        for h in habits:
+            hid = h["habit_id"]
+            logs_for = log_by_habit.get(hid, [])
+            recent_done = sum(1 for l in logs_for if l["completed"])
+            target_info = f" (target: {h['target_value']} {h['unit']})" if h["target_value"] else ""
+            habit_lines.append(
+                f"- {h['name']}{target_info} | frequency: {h['frequency']} | completed {recent_done}x last 30 days (id: {hid})"
+            )
+        extra_blocks += f"\n\n**Habits (last 30 days):**\n" + "\n".join(habit_lines)
+    if todos:
+        todo_lines = [
+            f"- [{t['priority']}] {t['title']}"
+            + (f" (due: {t['due_date']})" if t["due_date"] else "")
+            + (" ✓" if t["completed"] else "")
+            + f" (id: {t['todo_id']})"
+            for t in todos
+        ]
+        extra_blocks += f"\n\n**To-Do List:**\n" + "\n".join(todo_lines)
+    if calendar_events:
+        ev_lines = [
+            f"- [{e['date']}] {e['title']}"
+            + (f" {e['time_start']}–{e['time_end']}" if e.get("time_start") else "")
+            for e in calendar_events
+        ]
+        extra_blocks += f"\n\n**Upcoming Calendar Events:**\n" + "\n".join(ev_lines)
+
     context_label = f"Group: {group_name}" if context == "group" else "Personal (MyDash)"
     is_action = intent in ("action_add", "action_update", "action_remove")
+    is_calendar = intent in ("calendar_add", "extract_todos")
+    is_todo_add = intent == "todo_add"
+
+    protocol_block = ""
+    if is_action:
+        protocol_block = ACTION_PROTOCOL
+    if is_calendar:
+        protocol_block += ("\n\n" if protocol_block else "") + CALENDAR_PROTOCOL
+    if is_todo_add:
+        protocol_block += ("\n\n" if protocol_block else "") + TODO_PROTOCOL
 
     system = f"Today's date: {today}\n\n" + GENERATE_SYSTEM_TEMPLATE.format(
         context_label=context_label,
         stock_block=stock_block,
         cart_block=cart_block,
         tx_block=tx_block,
-        notes_block=notes_block,
-        action_protocol=ACTION_PROTOCOL if is_action else "",
+        notes_block=notes_block + extra_blocks,
+        action_protocol=protocol_block,
     )
 
     lc_msgs: list = [SystemMessage(content=system)]
@@ -441,6 +592,15 @@ def build_action_cards(state: AgentState) -> dict:
     context = state.get("inferred_context", "personal")
     group_id = state.get("inferred_group_id")
 
+    def _inject_owner(data: dict) -> dict:
+        if context == "personal" and user_id:
+            data["user_id"] = user_id
+            data.pop("group_id", None)
+        elif context == "group" and group_id:
+            data["group_id"] = group_id
+            data.pop("user_id", None)
+        return data
+
     # --- Parse CART_SUGGESTIONS ---
     cart_match = re.search(r"\nCART_SUGGESTIONS:([^\n]+)$", raw, re.MULTILINE)
     cart_suggestions: list[str] = []
@@ -449,6 +609,36 @@ def build_action_cards(state: AgentState) -> dict:
             s.strip() for s in cart_match.group(1).split(",") if s.strip()
         ]
         raw = raw[: cart_match.start()].strip()
+
+    # --- Parse TODO_SUGGESTIONS ---
+    todo_match = re.search(r"\nTODO_SUGGESTIONS:\s*(\[[\s\S]*?\])\s*(?=\n|$)", raw)
+    todo_suggestions: list[dict] = []
+    if todo_match:
+        try:
+            parsed = json.loads(todo_match.group(1))
+            if isinstance(parsed, list):
+                for card in parsed:
+                    if isinstance(card, dict) and card.get("type") == "add":
+                        card["data"] = _inject_owner(card.get("data", {}))
+                todo_suggestions = parsed
+        except (json.JSONDecodeError, ValueError):
+            todo_suggestions = []
+        raw = raw[: todo_match.start()].strip()
+
+    # --- Parse CALENDAR_SUGGESTIONS ---
+    cal_match = re.search(r"\nCALENDAR_SUGGESTIONS:\s*(\[[\s\S]*?\])\s*(?=\n|$)", raw)
+    calendar_suggestions: list[dict] = []
+    if cal_match:
+        try:
+            parsed = json.loads(cal_match.group(1))
+            if isinstance(parsed, list):
+                for card in parsed:
+                    if isinstance(card, dict) and card.get("type") == "add":
+                        card["data"] = _inject_owner(card.get("data", {}))
+                calendar_suggestions = parsed
+        except (json.JSONDecodeError, ValueError):
+            calendar_suggestions = []
+        raw = raw[: cal_match.start()].strip()
 
     # --- Parse ACTION_SUGGESTIONS ---
     action_match = re.search(r"\nACTION_SUGGESTIONS:\s*(\[[\s\S]*?\])\s*$", raw)
@@ -459,22 +649,18 @@ def build_action_cards(state: AgentState) -> dict:
             if isinstance(parsed, list):
                 for card in parsed:
                     if isinstance(card, dict) and card.get("type") == "add":
-                        data = card.get("data", {})
-                        if context == "personal" and user_id:
-                            data["user_id"] = user_id
-                            data.pop("group_id", None)
-                        elif context == "group" and group_id:
-                            data["group_id"] = group_id
-                            data.pop("user_id", None)
-                        card["data"] = data
+                        card["data"] = _inject_owner(card.get("data", {}))
                 action_suggestions = parsed
         except (json.JSONDecodeError, ValueError):
             action_suggestions = []
         raw = raw[: action_match.start()].strip()
 
+    # Merge all structured suggestions into action_suggestions list
+    all_suggestions = action_suggestions + calendar_suggestions + todo_suggestions
+
     return {
         "response": raw.strip(),
-        "action_suggestions": action_suggestions,
+        "action_suggestions": all_suggestions,
         "cart_suggestions": cart_suggestions,
     }
 

@@ -90,9 +90,115 @@ export type ChatMessage = {
   content: string;
 };
 
+export type Habit = {
+  habit_id: string;
+  name: string;
+  description: string | null;
+  frequency: 'daily' | 'weekdays' | 'weekends' | 'weekly';
+  target_value: number | null;
+  unit: string | null;
+  is_active: boolean;
+  sort_order: number;
+  user_id?: number;
+  group_id?: string;
+};
+
+export type HabitCreate = {
+  name: string;
+  description?: string | null;
+  frequency: 'daily' | 'weekdays' | 'weekends' | 'weekly';
+  target_value?: number | null;
+  unit?: string | null;
+  sort_order?: number;
+  user_id?: number;
+  group_id?: string;
+};
+
+export type HabitUpdate = {
+  name?: string;
+  description?: string | null;
+  frequency?: 'daily' | 'weekdays' | 'weekends' | 'weekly';
+  target_value?: number | null;
+  unit?: string | null;
+  is_active?: boolean;
+  sort_order?: number;
+};
+
+export type HabitLog = {
+  log_id: string;
+  habit_id: string;
+  date: string;
+  completed: boolean;
+  value: number | null;
+};
+
+export type HabitLogUpsert = {
+  habit_id: string;
+  date: string;
+  completed: boolean;
+  value?: number | null;
+};
+
+export type Todo = {
+  todo_id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  priority: 'low' | 'medium' | 'high';
+  completed: boolean;
+  completed_at: string | null;
+  user_id?: number;
+  group_id?: string;
+};
+
+export type TodoCreate = {
+  title: string;
+  description?: string | null;
+  due_date?: string | null;
+  priority?: 'low' | 'medium' | 'high';
+  user_id?: number;
+  group_id?: string;
+};
+
+export type TodoUpdate = {
+  title?: string;
+  description?: string | null;
+  due_date?: string | null;
+  priority?: 'low' | 'medium' | 'high';
+};
+
+export type CalendarEvent = {
+  event_id: string;
+  title: string;
+  description: string | null;
+  date: string;
+  time_start: string | null;
+  time_end: string | null;
+  user_id?: number;
+  group_id?: string;
+};
+
+export type CalendarEventCreate = {
+  title: string;
+  description?: string | null;
+  date: string;
+  time_start?: string | null;
+  time_end?: string | null;
+  user_id?: number;
+  group_id?: string;
+};
+
+export type CalendarEventUpdate = {
+  title?: string;
+  description?: string | null;
+  date?: string;
+  time_start?: string | null;
+  time_end?: string | null;
+};
+
 export type ActionSuggestion = {
   type: 'add' | 'update' | 'remove';
-  entity: 'transaction' | 'stock' | 'cart';
+  entity: 'transaction' | 'stock' | 'cart' | 'habit' | 'todo' | 'calendar';
   label: string;
   data: Record<string, unknown>;
 };

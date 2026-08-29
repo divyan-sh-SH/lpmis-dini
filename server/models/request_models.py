@@ -149,3 +149,123 @@ class NoteResponse(BaseModel):
 class NoteUpdate(BaseModel):
     content: str
 
+
+# --- HABIT MODELS ---
+class HabitCreate(BaseModel):
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = None
+    frequency: str  # daily|weekdays|weekends|weekly
+    target_value: Optional[int] = None
+    unit: Optional[str] = Field(None, max_length=30)
+    is_active: bool = True
+    sort_order: int = 0
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
+
+class HabitResponse(BaseModel):
+    habit_id: UUID
+    name: str
+    description: Optional[str] = None
+    frequency: str
+    target_value: Optional[int] = None
+    unit: Optional[str] = None
+    is_active: bool
+    sort_order: int
+    created_at: datetime
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+class HabitUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
+    frequency: Optional[str] = None
+    target_value: Optional[int] = None
+    unit: Optional[str] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+# --- HABIT LOG MODELS ---
+class HabitLogUpsert(BaseModel):
+    habit_id: UUID
+    date: str  # YYYY-MM-DD
+    completed: bool = False
+    value: Optional[int] = None
+
+class HabitLogResponse(BaseModel):
+    log_id: UUID
+    habit_id: UUID
+    date: str
+    completed: bool
+    value: Optional[int] = None
+    logged_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- TODO MODELS ---
+class TodoCreate(BaseModel):
+    title: str = Field(..., max_length=300)
+    description: Optional[str] = None
+    due_date: Optional[str] = None  # YYYY-MM-DD
+    priority: str = "medium"  # low|medium|high
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
+
+class TodoResponse(BaseModel):
+    todo_id: UUID
+    title: str
+    description: Optional[str] = None
+    due_date: Optional[str] = None
+    priority: str
+    completed: bool
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+class TodoUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=300)
+    description: Optional[str] = None
+    due_date: Optional[str] = None
+    priority: Optional[str] = None
+
+
+# --- CALENDAR EVENT MODELS ---
+class CalendarEventCreate(BaseModel):
+    title: str = Field(..., max_length=200)
+    description: Optional[str] = None
+    date: str  # YYYY-MM-DD
+    time_start: Optional[str] = None  # HH:MM
+    time_end: Optional[str] = None  # HH:MM
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
+
+class CalendarEventResponse(BaseModel):
+    event_id: UUID
+    title: str
+    description: Optional[str] = None
+    date: str
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
+    created_at: datetime
+    user_id: Optional[int] = None
+    group_id: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+class CalendarEventUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = None
+    date: Optional[str] = None
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
+

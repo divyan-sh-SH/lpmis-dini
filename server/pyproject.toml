@@ -18,6 +18,7 @@ dependencies = [
   "anthropic>=0.101.0",
   "langgraph>=1.0.0",
   "langchain-anthropic>=1.0.0",
+  "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]

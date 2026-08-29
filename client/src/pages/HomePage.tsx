@@ -1,28 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LineChart from '../components/LineChart';
-import { getUserTransactions, getGroupsForUser } from '../lib/moneyApi';
-import type { Transaction, Group } from '../types/dashboard';
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
-import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import CalendarView from '../components/CalendarView';
+import {
+  getUserTransactions,
+  getUserCalendarEvents, getUserHabits, getUserHabitLogsRange, getUserTodos,
+} from '../lib/moneyApi';
+import type { Transaction, CalendarEvent, Habit, HabitLog, Todo } from '../types/dashboard';
 import MyDashIcon from '../components/icons/MyDashIcon';
 import MyHomeDashIcon from '../components/icons/MyHomeDashIcon';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
 import NorthRoundedIcon from '@mui/icons-material/NorthRounded';
 import SouthRoundedIcon from '@mui/icons-material/SouthRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 
 type Period = 'week' | 'month';
-
-const GROUP_GRADIENTS = [
-  'from-blue-500 to-indigo-600',
-  'from-emerald-500 to-teal-600',
-  'from-violet-500 to-purple-600',
-  'from-orange-400 to-rose-500',
-  'from-cyan-500 to-blue-500',
-  'from-fuchsia-500 to-pink-600',
-];
+type Tab = 'calendar' | 'charts';
 
 function getPeriodStart(period: Period): Date {
   const now = new Date();
@@ -52,20 +48,46 @@ function todayLabel(): string {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState<Tab>('calendar');
+
+  // Charts data
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('week');
 
-  useEffect(() => {
+  // Calendar data
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [logs, setLogs] = useState<HabitLog[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const rangeStart = new Date();
+  rangeStart.setDate(rangeStart.getDate() - 7);
+  const rangeEnd = new Date();
+  rangeEnd.setDate(rangeEnd.getDate() + 30);
+  const startDate = rangeStart.toISOString().split('T')[0];
+  const endDate = rangeEnd.toISOString().split('T')[0];
+
+  const load = useCallback(async () => {
     if (!user) return;
-    Promise.all([getUserTransactions(user.user_id), getGroupsForUser(user.user_id)])
-      .then(([txs, grps]) => {
-        setTransactions(txs);
-        setGroups(grps);
-      })
-      .finally(() => setLoading(false));
-  }, [user]);
+    setLoading(true);
+    const [txRes, evRes, habRes, logRes, todoRes] = await Promise.allSettled([
+      getUserTransactions(user.user_id),
+      getUserCalendarEvents(user.user_id),
+      getUserHabits(user.user_id),
+      getUserHabitLogsRange(user.user_id, startDate, endDate),
+      getUserTodos(user.user_id),
+    ]);
+    if (txRes.status === 'fulfilled') setTransactions(txRes.value);
+    if (evRes.status === 'fulfilled') setEvents(evRes.value);
+    if (habRes.status === 'fulfilled') setHabits(habRes.value);
+    if (logRes.status === 'fulfilled') setLogs(logRes.value);
+    if (todoRes.status === 'fulfilled') setTodos(todoRes.value);
+    setLoading(false);
+  }, [user, startDate, endDate]);
+
+  useEffect(() => { load(); }, [load]);
 
   const periodStart = getPeriodStart(period);
   const periodEnd = new Date();
@@ -86,12 +108,16 @@ export default function HomePage() {
     ? user.username.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
+  const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'calendar', label: 'Calendar', icon: <CalendarMonthRoundedIcon sx={{ fontSize: 16 }} /> },
+    { id: 'charts', label: 'Charts', icon: <BarChartRoundedIcon sx={{ fontSize: 16 }} /> },
+  ];
+
   return (
     <div className="w-full space-y-5">
 
       {/* ── Hero card ── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 px-6 py-6 text-white shadow-lg shadow-indigo-200/50">
-        {/* Decorative circles */}
         <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute -bottom-8 right-20 h-28 w-28 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute bottom-4 -left-6 h-20 w-20 rounded-full bg-white/5" />
@@ -132,7 +158,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Avatar */}
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-lg font-bold backdrop-blur-sm">
             {initials}
           </div>
@@ -166,172 +191,92 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* ── Data sections ── */}
+      {/* ── Tab bar ── */}
+      <div className="flex gap-1 rounded-2xl bg-slate-100 p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold transition ${
+              tab === t.id
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab content ── */}
       {loading ? (
         <div className="rounded-2xl bg-white border border-slate-100 px-4 py-12 text-center shadow-sm">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
           </div>
-          <p className="text-sm text-slate-500">Loading your data…</p>
+          <p className="text-sm text-slate-500">Loading…</p>
         </div>
+      ) : tab === 'calendar' ? (
+        <CalendarView
+          events={events}
+          habits={habits}
+          logs={logs}
+          todos={todos}
+          scope={{ user_id: user?.user_id }}
+          onRefresh={load}
+        />
       ) : (
-        <>
-          {/* MyDash Overview */}
-          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">MyDash Overview</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Your personal financials</p>
-              </div>
-              <Link
-                to="/personal"
-                className="flex items-center gap-0.5 rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100 transition"
-              >
-                Manage <ChevronRightRoundedIcon sx={{ fontSize: 14 }} />
-              </Link>
-            </div>
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="px-5 pt-5 pb-2">
+            <LineChart transactions={transactions} onPeriodChange={setPeriod} />
+          </div>
 
-            <div className="px-5 pb-2">
-              <LineChart transactions={transactions} onPeriodChange={setPeriod} />
-            </div>
-
-            {/* Stat cards */}
-            <div className="grid grid-cols-3 gap-3 px-5 pb-5">
-              {/* Net Balance */}
+          <div className="grid grid-cols-3 gap-3 px-5 pb-5">
+            <div
+              className={`rounded-2xl p-3.5 ${
+                net >= 0
+                  ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200'
+                  : 'bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200'
+              }`}
+            >
               <div
-                className={`rounded-2xl p-3.5 ${
-                  net >= 0
-                    ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200'
-                    : 'bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200'
+                className={`mb-2 flex h-7 w-7 items-center justify-center rounded-xl ${
+                  net >= 0 ? 'bg-emerald-100' : 'bg-rose-100'
                 }`}
               >
-                <div
-                  className={`mb-2 flex h-7 w-7 items-center justify-center rounded-xl ${
-                    net >= 0 ? 'bg-emerald-100' : 'bg-rose-100'
-                  }`}
-                >
-                  {net >= 0 ? (
-                    <TrendingUpRoundedIcon sx={{ fontSize: 15 }} className="text-emerald-600" />
-                  ) : (
-                    <TrendingDownRoundedIcon sx={{ fontSize: 15 }} className="text-rose-600" />
-                  )}
-                </div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  Net
-                </p>
-                <p
-                  className={`mt-0.5 text-base font-bold truncate ${
-                    net >= 0 ? 'text-emerald-700' : 'text-rose-700'
-                  }`}
-                >
-                  {fmtMoney(Math.abs(net))}
-                </p>
-                <p className="text-[10px] text-slate-400">{net >= 0 ? 'surplus' : 'deficit'}</p>
+                {net >= 0 ? (
+                  <TrendingUpRoundedIcon sx={{ fontSize: 15 }} className="text-emerald-600" />
+                ) : (
+                  <TrendingDownRoundedIcon sx={{ fontSize: 15 }} className="text-rose-600" />
+                )}
               </div>
-
-              {/* Income */}
-              <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-sky-50 p-3.5">
-                <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-blue-100">
-                  <NorthRoundedIcon sx={{ fontSize: 15 }} className="text-blue-600" />
-                </div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  Income
-                </p>
-                <p className="mt-0.5 text-base font-bold text-blue-700 truncate">
-                  {fmtMoney(income)}
-                </p>
-                <p className="text-[10px] text-slate-400">this {period}</p>
-              </div>
-
-              {/* Expenses */}
-              <div className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-3.5">
-                <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-100">
-                  <SouthRoundedIcon sx={{ fontSize: 15 }} className="text-orange-600" />
-                </div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  Expenses
-                </p>
-                <p className="mt-0.5 text-base font-bold text-orange-700 truncate">
-                  {fmtMoney(expense)}
-                </p>
-                <p className="text-[10px] text-slate-400">this {period}</p>
-              </div>
-            </div>
-          </section>
-
-          {/* My HomeDash List */}
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">My HomeDash</h2>
-                <p className="text-xs text-slate-400">Your shared households</p>
-              </div>
-              <Link
-                to="/groups"
-                className="flex items-center gap-0.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 transition"
-              >
-                Manage <ChevronRightRoundedIcon sx={{ fontSize: 14 }} />
-              </Link>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Net</p>
+              <p className={`mt-0.5 text-base font-bold truncate ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {fmtMoney(Math.abs(net))}
+              </p>
+              <p className="text-[10px] text-slate-400">{net >= 0 ? 'surplus' : 'deficit'}</p>
             </div>
 
-            {groups.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center shadow-sm">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50">
-                  <HomeRoundedIcon sx={{ fontSize: 24 }} className="text-indigo-400" />
-                </div>
-                <p className="text-sm font-medium text-slate-600">No home groups yet</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Create a group to manage shared expenses
-                </p>
-                <Link
-                  to="/groups"
-                  className="mt-3 inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition no-underline"
-                >
-                  Create group →
-                </Link>
+            <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-sky-50 p-3.5">
+              <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-blue-100">
+                <NorthRoundedIcon sx={{ fontSize: 15 }} className="text-blue-600" />
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {groups.map((g, idx) => {
-                  const initials = g.group_name
-                    .split(' ')
-                    .map((w) => w[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2);
-                  const gradient = GROUP_GRADIENTS[idx % GROUP_GRADIENTS.length];
-                  return (
-                    <Link
-                      key={g.group_id}
-                      to={`/groups/${g.group_id}`}
-                      className="no-underline group"
-                    >
-                      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5">
-                        <div
-                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-sm font-bold text-white shadow-sm`}
-                        >
-                          {initials}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-semibold text-slate-900 text-sm">
-                            {g.group_name}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {g.users.length} member{g.users.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <ChevronRightRoundedIcon
-                          sx={{ fontSize: 18 }}
-                          className="shrink-0 text-slate-300 group-hover:text-indigo-400 transition"
-                        />
-                      </div>
-                    </Link>
-                  );
-                })}
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Income</p>
+              <p className="mt-0.5 text-base font-bold text-blue-700 truncate">{fmtMoney(income)}</p>
+              <p className="text-[10px] text-slate-400">this {period}</p>
+            </div>
+
+            <div className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-3.5">
+              <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-100">
+                <SouthRoundedIcon sx={{ fontSize: 15 }} className="text-orange-600" />
               </div>
-            )}
-          </section>
-        </>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Expenses</p>
+              <p className="mt-0.5 text-base font-bold text-orange-700 truncate">{fmtMoney(expense)}</p>
+              <p className="text-[10px] text-slate-400">this {period}</p>
+            </div>
+          </div>
+        </section>
       )}
 
     </div>
